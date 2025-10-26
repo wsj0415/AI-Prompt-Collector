@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { PromptModal } from './components/PromptModal';
 import { StatisticsView } from './components/StatisticsView';
 import { PromptDetailView } from './components/PromptDetailView';
@@ -10,7 +10,7 @@ import {
     PlusIcon, EditIcon, DeleteIcon, SearchIcon, 
     SparklesIcon, CopyIcon, CheckIcon, CollectionIcon, StatsIcon, ImportIcon, 
     ExportIcon, TextIcon, ImageIcon, VideoIcon, AudioIcon, CodeIcon, GridIcon,
-    SunIcon, MoonIcon
+    SunIcon, MoonIcon, HashtagIcon
 } from './components/icons';
 
 type Theme = 'light' | 'dark';
@@ -45,7 +45,9 @@ const App: React.FC = () => {
   const [searchError, setSearchError] = useState('');
   const [filteredPrompts, setFilteredPrompts] = useState<Prompt[]>([]);
   const [modalityFilter, setModalityFilter] = useState<Modality | null>(null);
+  const [themeFilter, setThemeFilter] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState('createdAt-desc');
+  const importInputRef = useRef<HTMLInputElement>(null);
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window !== 'undefined') {
       const savedTheme = localStorage.getItem('theme') as Theme | null;
@@ -94,25 +96,39 @@ const App: React.FC = () => {
     }
   }, [searchQuery]);
 
-  const displayedPrompts = useMemo(() => {
-    let promptsToDisplay: Prompt[] = [];
+  const topThemes = useMemo(() => {
+    const themeCounts = prompts.reduce((acc, prompt) => {
+        if (prompt.theme) {
+            acc[prompt.theme] = (acc[prompt.theme] || 0) + 1;
+        }
+        return acc;
+    }, {} as Record<string, number>);
 
-    const promptsAfterModalityFilter = modalityFilter
-        ? prompts.filter(p => p.modality === modalityFilter)
-        : prompts;
+    return Object.entries(themeCounts)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 5)
+        .map(([theme]) => theme);
+  }, [prompts]);
+
+  const displayedPrompts = useMemo(() => {
+    const promptsAfterFilters = prompts
+      .filter(p => !modalityFilter || p.modality === modalityFilter)
+      .filter(p => !themeFilter || p.theme === themeFilter);
+
+    let promptsToDisplay: Prompt[];
 
     if (!searchQuery.trim()) {
-        promptsToDisplay = promptsAfterModalityFilter;
+      promptsToDisplay = promptsAfterFilters;
     } else if (isAiSearch) {
-        promptsToDisplay = filteredPrompts;
+      promptsToDisplay = filteredPrompts;
     } else {
-        const lowerCaseQuery = searchQuery.toLowerCase();
-        promptsToDisplay = promptsAfterModalityFilter.filter(p =>
-            p.title.toLowerCase().includes(lowerCaseQuery) ||
-            p.promptText.toLowerCase().includes(lowerCaseQuery) ||
-            p.theme.toLowerCase().includes(lowerCaseQuery) ||
-            p.tags.some(tag => tag.toLowerCase().includes(lowerCaseQuery))
-        );
+      const lowerCaseQuery = searchQuery.toLowerCase();
+      promptsToDisplay = promptsAfterFilters.filter(p =>
+        p.title.toLowerCase().includes(lowerCaseQuery) ||
+        p.promptText.toLowerCase().includes(lowerCaseQuery) ||
+        p.theme.toLowerCase().includes(lowerCaseQuery) ||
+        p.tags.some(tag => tag.toLowerCase().includes(lowerCaseQuery))
+      );
     }
     
     return [...promptsToDisplay].sort((a, b) => {
@@ -128,12 +144,14 @@ const App: React.FC = () => {
         return 0;
     });
 
-  }, [prompts, modalityFilter, searchQuery, isAiSearch, filteredPrompts, sortBy]);
+  }, [prompts, modalityFilter, themeFilter, searchQuery, isAiSearch, filteredPrompts, sortBy]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isAiSearch) {
-        const promptsToSearch = modalityFilter ? prompts.filter(p => p.modality === modalityFilter) : prompts;
+        const promptsToSearch = prompts
+            .filter(p => !modalityFilter || p.modality === modalityFilter)
+            .filter(p => !themeFilter || p.theme === themeFilter);
         handleAiSearch(promptsToSearch);
     }
   }
@@ -173,7 +191,148 @@ const App: React.FC = () => {
     navigator.clipboard.writeText(text);
     addToast('Prompt copied to clipboard!', 'success');
   };
+
+  const handleExportPrompts = () => {
+    if (prompts.length === 0) {
+      addToast('No prompts to export.', 'info');
+      return;
+    }
+
+    const dataStr = JSON.stringify(prompts, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `ai-prompts-export-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    addToast('Prompts exported successfully!', 'success');
+  };
   
+  const handleImportClick = () => {
+    importInputRef.current?.click();
+  };
+
+  const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.csv')) {
+        addToast('Please select a .csv file.', 'error');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const text = e.target?.result as string;
+        if (!text) {
+            addToast('Could not read the file.', 'error');
+            return;
+        }
+
+        try {
+            const lines = text.split('\n').filter(line => line.trim() !== '');
+            if (lines.length < 2) {
+                throw new Error("CSV file is empty or has only a header.");
+            }
+            
+            const headerLine = lines[0].trim();
+            // A simple CSV parser to handle quoted fields.
+            const parseCsvLine = (line: string): string[] => {
+                const result: string[] = [];
+                let current = '';
+                let inQuotes = false;
+                for (let i = 0; i < line.length; i++) {
+                    const char = line[i];
+                    if (char === '"' && (i === 0 || line[i-1] !== '\\')) { // Handle escaped quotes later if needed
+                        inQuotes = !inQuotes;
+                    } else if (char === ',' && !inQuotes) {
+                        result.push(current.trim().replace(/^"|"$/g, ''));
+                        current = '';
+                    } else {
+                        current += char;
+                    }
+                }
+                result.push(current.trim().replace(/^"|"$/g, ''));
+                return result;
+            }
+
+            const header = parseCsvLine(headerLine);
+            const expectedHeader = ['id', 'title', 'promptText', 'modality', 'theme', 'tags', 'notes', 'createdAt'];
+            
+            if(header.length !== expectedHeader.length || !header.every((h, i) => h === expectedHeader[i])) {
+                 throw new Error(`Invalid CSV header. Expected: ${expectedHeader.join(',')}`);
+            }
+            
+            const headerMap = header.reduce((acc, h, i) => ({...acc, [h]: i}), {} as Record<string, number>);
+
+            const existingIds = new Set(prompts.map(p => p.id));
+            const newPrompts: Prompt[] = [];
+            let skippedCount = 0;
+
+            for (let i = 1; i < lines.length; i++) {
+                const values = parseCsvLine(lines[i]);
+                if (values.length !== header.length) {
+                    console.warn(`Skipping malformed row: ${lines[i]}`);
+                    continue;
+                }
+
+                const id = values[headerMap.id];
+                if (!id) continue;
+
+                if (existingIds.has(id)) {
+                    skippedCount++;
+                    continue;
+                }
+                
+                const modality = values[headerMap.modality] as Modality;
+                if (!Object.values(Modality).includes(modality)) {
+                    console.warn(`Skipping row with invalid modality: ${modality}`);
+                    continue;
+                }
+
+                const prompt: Prompt = {
+                    id,
+                    title: values[headerMap.title],
+                    promptText: values[headerMap.promptText],
+                    modality,
+                    theme: values[headerMap.theme],
+                    tags: values[headerMap.tags] ? values[headerMap.tags].split(',').map(t => t.trim()) : [],
+                    notes: values[headerMap.notes],
+                    createdAt: values[headerMap.createdAt] || new Date().toISOString(),
+                };
+                newPrompts.push(prompt);
+                existingIds.add(id);
+            }
+
+            if (newPrompts.length > 0) {
+                 setPrompts(prev => [...prev, ...newPrompts]);
+                 addToast(`Successfully imported ${newPrompts.length} prompts.`, 'success');
+            } else {
+                 addToast('No new prompts were imported.', 'info');
+            }
+
+            if (skippedCount > 0) {
+                addToast(`Skipped ${skippedCount} prompts with duplicate IDs.`, 'info');
+            }
+
+        } catch (error) {
+            addToast(error instanceof Error ? error.message : 'Failed to parse CSV file.', 'error');
+        } finally {
+            if(event.target) {
+                event.target.value = '';
+            }
+        }
+    };
+    reader.onerror = () => {
+         addToast('Error reading file.', 'error');
+    };
+    reader.readAsText(file);
+  };
+
   const handleCardClick = (prompt: Prompt) => {
     setSelectedPrompt(prompt);
   };
@@ -226,6 +385,27 @@ const App: React.FC = () => {
                     </button>
                 ))}
             </div>
+            <div className="border-t dark:border-gray-700 pt-4 space-y-2">
+                <h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center">
+                    <HashtagIcon className="w-4 h-4 mr-2" />
+                    Quick Filters
+                </h3>
+                <div className="px-3 flex flex-wrap gap-2">
+                    {topThemes.length > 0 ? topThemes.map((theme) => (
+                        <button
+                            key={theme}
+                            onClick={() => setThemeFilter(current => current === theme ? null : theme)}
+                            className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${
+                                themeFilter === theme 
+                                ? 'bg-primary-600 text-white' 
+                                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600'
+                            }`}
+                        >
+                            {theme}
+                        </button>
+                    )) : <p className="text-xs text-gray-500 px-1">No themes yet.</p>}
+                </div>
+            </div>
         </nav>
          <div className="px-4 py-4 border-t dark:border-gray-700 space-y-2">
              <button
@@ -235,10 +415,17 @@ const App: React.FC = () => {
                 {theme === 'light' ? <MoonIcon className="w-5 h-5" /> : <SunIcon className="w-5 h-5" />}
                 <span>{theme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>
             </button>
-            <button className="w-full text-left flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
+            <input
+                type="file"
+                ref={importInputRef}
+                className="hidden"
+                accept=".csv"
+                onChange={handleFileImport}
+             />
+            <button onClick={handleImportClick} className="w-full text-left flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
                 <ImportIcon className="w-5 h-5"/><span>Import</span>
             </button>
-            <button className="w-full text-left flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
+            <button onClick={handleExportPrompts} className="w-full text-left flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
                 <ExportIcon className="w-5 h-5"/><span>Export</span>
             </button>
         </div>
@@ -333,7 +520,7 @@ const App: React.FC = () => {
               ) : (
                 <div className="col-span-full text-center py-20 text-gray-500 dark:text-gray-400">
                     <h2 className="text-2xl font-bold">No Prompts Found</h2>
-                    <p>{searchQuery || modalityFilter ? "Try adjusting your filters or search term." : "Click 'Add Prompt' to get started."}</p>
+                    <p>{searchQuery || modalityFilter || themeFilter ? "Try adjusting your filters or search term." : "Click 'Add Prompt' to get started."}</p>
                 </div>
               )}
             </div>

@@ -5,30 +5,29 @@ This document outlines the planned features and improvements for the AI Prompt C
 **Phase 4: User Experience & Theming**
 
 -   **[✔️] 6. Implement Dark/Light Mode Toggle:**
-    -   [ ] Add a UI control (e.g., a toggle switch in the sidebar or header) to allow users to manually switch between light and dark themes.
-    -   [ ] Use JavaScript to add/remove the `dark` class on the `<html>` element.
-    -   [ ] Persist the user's theme preference in `localStorage` so it's remembered across sessions.
-    -   [ ] Ensure all components are fully theme-aware and have optimal contrast in both modes.
+    -   [x] Add a UI control (e.g., a toggle switch in the sidebar or header) to allow users to manually switch between light and dark themes.
+    -   [x] Use JavaScript to add/remove the `dark` class on the `<html>` element.
+    -   [x] Persist the user's theme preference in `localStorage` so it's remembered across sessions.
+    -   [x] Ensure all components are fully theme-aware and have optimal contrast in both modes.
 
 -   **[✔️] 7. Implement a Toast Notification System:**
-    -   [ ] Replace the simple "Copied!" text feedback with a more robust toast notification system.
-    -   [ ] Use toast notifications for other actions like "Prompt Saved," "Prompt Deleted," "Import Successful," and API error messages.
-    -   [ ] Position notifications in a non-intrusive corner of the screen (e.g., top-right or bottom-center).
+    -   [x] Replace the simple "Copied!" text feedback with a more robust toast notification system.
+    -   [x] Use toast notifications for other actions like "Prompt Saved," "Prompt Deleted," "Import Successful," and API error messages.
+    -   [x] Position notifications in a non-intrusive corner of the screen (e.g., top-right or bottom-center).
 
 **Phase 5: Data Portability & Advanced Filtering**
 
--   **[TODO] 8. Implement CSV/JSON Export Functionality:**
-    -   [ ] Add logic to the "Export" button that converts the `prompts` array into a CSV or JSON string.
-    -   [ ] Trigger a file download of the generated string (`prompts.csv` or `prompts.json`).
-    -   [ ] Ensure all fields, including multi-value fields like tags, are handled correctly (e.g., tags could be a single pipe-separated string in CSV).
+-   **[✔️] 8. Implement JSON Export Functionality:**
+    -   [x] Added logic to the "Export" button to download all prompts as a `.json` file.
+    -   [ ] (Future) Add option to export as CSV.
 
--   **[TODO] 9. Implement CSV Import Functionality:**
-    -   [ ] Add logic to the "Import" button that opens a file selection dialog for `.csv` files.
-    -   [ ] Implement a CSV parsing function that reads the file and converts each row into a valid `Prompt` object.
-    -   [ ] Provide feedback to the user on the import process (e.g., "Successfully imported 15 prompts").
-    -   [ ] Include robust error handling for malformed CSV files or incorrect data types.
+-   **[✔️] 9. Implement CSV Import Functionality:**
+    -   [x] Add logic to the "Import" button that opens a file selection dialog for `.csv` files.
+    -   [x] Implement a CSV parsing function that reads the file and converts each row into a valid `Prompt` object.
+    -   [x] Provide feedback to the user on the import process (e.g., "Successfully imported 15 prompts").
+    -   [x] Include robust error handling for malformed CSV files or incorrect data types.
 
--   **[TODO] 10. (Optional) Add Quick Filters for Themes/Tags:**
-    -   [ ] In the sidebar, dynamically identify the 5-7 most frequently used themes or tags.
-    -   [ ] Display these as clickable pills or links under a "Quick Filters" section.
-    -   [ ] Clicking a theme/tag filter should update the main view to show only prompts with that attribute.
+-   **[✔️] 10. Add Quick Filters for Themes/Tags:**
+    -   [x] In the sidebar, dynamically identified the 5 most frequently used themes.
+    -   [x] Displayed these as clickable pills under a "Quick Filters" section.
+    -   [x] Clicking a theme pill filters the main view to show only prompts with that theme, and works with other filters.

@@ -1,4 +1,3 @@
-
 # AI Prompt Collector
 
 This document provides a comprehensive overview of the AI Prompt Collector application, including a project retrospective, product documentation, and technical details.
@@ -18,6 +17,7 @@ To elevate a basic prompt list application into a professional, scalable, and de
 3.  **[✔️] Powerful Querying Capabilities:** Implemented modality filtering in the sidebar and multi-faceted sorting controls in the main header, empowering users to quickly and accurately find their prompts.
 4.  **[✔️] In-Depth Interaction:** Introduced a `Prompt Detail View`, allowing users to see the full, un-truncated content of their prompts in a focused, distraction-free environment, elevating the app from a simple list to a true knowledge base.
 5.  **[✔️] Enhanced Data Insights:** Polished the `Statistics View` by adding key metric cards, providing users with an immediate, at-a-glance overview of their collection.
+6.  **[✔️] Data Portability:** Implemented robust JSON export and CSV import functionalities, allowing users to back up and restore their data with ease.
 
 **Final Outcome:**
 The result is an application that is not only feature-complete but also professional in its aesthetics and user experience. It is now more intuitive, efficient, and well-prepared for future feature enhancements.
@@ -40,13 +40,16 @@ The result is an application that is not only feature-complete but also professi
     *   **Sorting:** The collection can be sorted by creation date (newest/oldest) or title (A-Z/Z-A).
 *   **Focused Detail View:** Clicking a prompt card opens a full-screen modal that displays the entire prompt text and notes without truncation, along with focused actions like copy, edit, and delete.
 *   **Data-Driven Insights:** The "Statistics" page visualizes the collection's data, showing total counts, modality distribution, and top themes through charts and key metric cards.
-*   **Data Portability:** The UI includes placeholders for Import and Export buttons, laying the groundwork for future batch data management.
+*   **Data Portability:**
+    *   **Export:** Users can export their entire prompt collection to a JSON file for backup.
+    *   **Import:** Users can import prompts from a properly formatted CSV file.
 
 ### 3. User Workflow
 1.  **Add & Categorize:** A user clicks "Add Prompt" in the sidebar, fills out the form, and uses the AI generation feature to automatically assign a theme and tags.
 2.  **Browse & Find:** In the "Collection" view, the user can browse, filter by modality, sort the list, or use the search bar (in keyword or AI mode) to find a specific prompt.
 3.  **Use & Manage:** Once found, the user can quickly copy the prompt from the card's hover menu or click to open the detail view for full content and management options.
 4.  **Review & Analyze:** The user can switch to the "Statistics" view at any time to get an overview of their collection habits.
+5.  **Import & Export:** Users can click "Import" to add prompts from a CSV file or "Export" to save a backup of their collection as a JSON file.
 
 ---
 
@@ -108,3 +111,15 @@ Application state is managed within the main `App.tsx` component using React Hoo
     *   All communication with the Gemini API is isolated in `services/geminiService.ts`.
     *   `generateTagsAndTheme`: Constructs a request with a specific JSON schema to ensure the API returns a consistently structured object for the theme and tags.
     *   `findRelevantPrompts`: Sends a summarized list of all prompts along with the user's query to the API, asking it to return an array of the most relevant prompt IDs, which are then used to filter and sort the results.
+
+### 5. Data Import/Export
+
+*   **Export:** The entire collection is exported as a single JSON file with a timestamped filename (e.g., `ai-prompts-export-YYYY-MM-DD.json`).
+*   **Import:** Data can be imported from a CSV file. The file **must** adhere to the following format:
+    *   **Header:** The first row must be a header with these exact column names in order: `id,title,promptText,modality,theme,tags,notes,createdAt`.
+    *   **Columns:**
+        *   `id`: A unique identifier for the prompt. If an ID from the CSV file already exists in the collection, that row will be skipped.
+        *   `modality`: Must be one of the following exact values: `Text`, `Image`, `Video`, `Audio`, `Code`.
+        *   `tags`: A comma-separated string of tags (e.g., `"sci-fi,space,concept art"`).
+        *   **Quoting:** If any field contains a comma, it must be enclosed in double quotes (`"`).
+    *   **Encoding:** The file should be UTF-8 encoded.
