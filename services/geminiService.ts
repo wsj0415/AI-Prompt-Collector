@@ -184,7 +184,7 @@ export const generateImage = async (promptText: string): Promise<string> => {
 };
 
 export const generateVideo = async (promptText: string): Promise<string> => {
-  // Create a new GoogleGenAI instance right before making an API call
+  // Create a new GoogleGenAI instance right before making an API call to ensure it uses the latest key.
   const aiForVideo = new GoogleGenAI({ apiKey: process.env.API_KEY! });
   try {
     let operation = await aiForVideo.models.generateVideos({
@@ -203,6 +203,7 @@ export const generateVideo = async (promptText: string): Promise<string> => {
     }
 
     if (operation.error) {
+        // @ts-ignore
         throw new Error(`Video generation failed: ${operation.error.message}`);
     }
 
@@ -222,18 +223,21 @@ export const generateVideo = async (promptText: string): Promise<string> => {
 
   } catch (error) {
     console.error("Error generating video:", error);
-    // Handle specific API key error to re-prompt user
-    // @ts-ignore
-    if (error instanceof Error && error.message.includes("Requested entity was not found.")) {
+    
+    // Convert the whole error object to a string to reliably check for the key error message.
+    const errorString = JSON.stringify(error);
+    if (errorString.includes("Requested entity was not found.")) {
         // @ts-ignore
         if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
            // @ts-ignore
            await window.aistudio.openSelectKey();
-           // Re-throw a user-friendly message
-           throw new Error("API key was invalid. Please select a key and try generating again.");
+           // Re-throw a user-friendly message to guide the user.
+           throw new Error("API key is invalid. Please select a valid key in the dialog and try again.");
         }
     }
-    // Re-throw a generic or the original error
-    throw new Error(error instanceof Error ? error.message : "Failed to generate video with AI. Please try again.");
+    
+    // @ts-ignore
+    const errorMessage = error?.message || "An unknown error occurred during video generation.";
+    throw new Error(errorMessage);
   }
 };
