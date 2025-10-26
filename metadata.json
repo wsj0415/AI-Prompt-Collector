@@ -1,0 +1,5 @@
+{
+  "name": "AI Prompt Collector",
+  "description": "An intelligent application for managing, categorizing, and searching your personal collection of AI prompts for various modalities like text, images, video, and code. Features AI-powered tagging and semantic search.",
+  "requestFramePermissions": []
+}
