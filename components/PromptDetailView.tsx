@@ -1,11 +1,12 @@
-
 import React, { useState } from 'react';
-import type { Prompt, PromptVersion } from '../types';
+import type { Prompt, PromptVersion, TestResult } from '../types';
 import { Modality } from '../types';
 import { 
     XIcon, CopyIcon, EditIcon, DeleteIcon,
-    TextIcon, ImageIcon, VideoIcon, AudioIcon, CodeIcon, BeakerIcon
+    TextIcon, ImageIcon, VideoIcon, AudioIcon, CodeIcon, BeakerIcon, SparklesIcon,
+    ArrowsRightLeftIcon
 } from './icons';
+import { PromptComparisonView } from './PromptComparisonView';
 
 interface PromptDetailViewProps {
   prompt: Prompt | null;
@@ -15,6 +16,7 @@ interface PromptDetailViewProps {
   onCopy: (text: string) => void;
   onChangeVersion: (promptId: string, version: number) => void;
   onRunTest: (promptId: string) => Promise<void>;
+  onEvaluateTest: (promptId: string, testResultId: string) => Promise<void>;
 }
 
 const getActiveVersion = (prompt: Prompt | null): PromptVersion | null => {
@@ -30,9 +32,58 @@ const modalityIcons: Record<Modality, React.FC<React.SVGProps<SVGSVGElement>>> =
     [Modality.CODE]: CodeIcon,
 };
 
-export const PromptDetailView: React.FC<PromptDetailViewProps> = ({ prompt, onClose, onEdit, onDelete, onCopy, onChangeVersion, onRunTest }) => {
+const TestResultItem: React.FC<{
+    result: TestResult,
+    prompt: Prompt,
+    onEvaluateTest: (promptId: string, testResultId: string) => Promise<void>;
+}> = ({ result, prompt, onEvaluateTest }) => {
+    const [isEvaluating, setIsEvaluating] = useState(false);
+
+    const handleEvaluate = async () => {
+        setIsEvaluating(true);
+        await onEvaluateTest(prompt.id, result.id);
+        setIsEvaluating(false);
+    }
+
+    return (
+        <li key={result.id} className="p-4 space-y-3">
+            <div className="flex justify-between items-center">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Test run on: {new Date(result.createdAt).toLocaleString()}
+                </p>
+                { !result.evaluation &&
+                    <button
+                        onClick={handleEvaluate}
+                        disabled={isEvaluating}
+                        className="flex items-center px-3 py-1 text-xs font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 disabled:bg-gray-400"
+                    >
+                        <SparklesIcon className="w-4 h-4 mr-1.5"/>
+                        {isEvaluating ? 'Evaluating...' : 'Evaluate with AI'}
+                    </button>
+                }
+            </div>
+            <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap text-sm p-3 bg-gray-50 dark:bg-gray-700/50 rounded-md">{result.output}</p>
+            { result.evaluation &&
+                <div className="p-3 bg-primary-50 dark:bg-primary-900/20 rounded-lg border border-primary-200 dark:border-primary-800/50">
+                    <div className="flex items-center space-x-3 mb-1">
+                        <div className="flex items-center justify-center w-10 h-10 bg-primary-500 text-white font-bold text-lg rounded-full">
+                           {result.evaluation.score}
+                        </div>
+                        <div>
+                             <h4 className="font-semibold text-primary-800 dark:text-primary-200">AI Evaluation</h4>
+                             <p className="text-sm text-primary-700 dark:text-primary-300 italic">"{result.evaluation.feedback}"</p>
+                        </div>
+                    </div>
+                </div>
+            }
+        </li>
+    );
+}
+
+export const PromptDetailView: React.FC<PromptDetailViewProps> = ({ prompt, onClose, onEdit, onDelete, onCopy, onChangeVersion, onRunTest, onEvaluateTest }) => {
   const [activeTab, setActiveTab] = useState<'details' | 'testing'>('details');
   const [isTesting, setIsTesting] = useState(false);
+  const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
 
   if (!prompt) return null;
 
@@ -116,7 +167,18 @@ export const PromptDetailView: React.FC<PromptDetailViewProps> = ({ prompt, onCl
   const TestingTabContent = () => (
     <div className="space-y-6">
         <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg space-y-4">
-            <h3 className="font-semibold text-gray-800 dark:text-gray-200">Test Active Version ({`v${prompt.currentVersion}`})</h3>
+            <div className="flex justify-between items-center">
+                <h3 className="font-semibold text-gray-800 dark:text-gray-200">Test Active Version ({`v${prompt.currentVersion}`})</h3>
+                {prompt.versions.length > 1 && (
+                     <button
+                        onClick={() => setIsCompareModalOpen(true)}
+                        className="flex items-center px-3 py-1 text-xs font-medium text-primary-600 dark:text-primary-300 bg-primary-100 dark:bg-primary-900/50 rounded-md hover:bg-primary-200 dark:hover:bg-primary-900"
+                    >
+                        <ArrowsRightLeftIcon className="w-4 h-4 mr-1.5"/>
+                        Compare Versions
+                    </button>
+                )}
+            </div>
             <p className="text-xs text-gray-600 dark:text-gray-400 font-mono p-3 bg-white dark:bg-gray-800 rounded border dark:border-gray-700 whitespace-pre-wrap">{activePromptText}</p>
             <button
                 onClick={handleRunTest}
@@ -134,12 +196,7 @@ export const PromptDetailView: React.FC<PromptDetailViewProps> = ({ prompt, onCl
                 {activeVersion?.testResults && activeVersion.testResults.length > 0 ? (
                      <ul className="divide-y dark:divide-gray-700">
                         {activeVersion.testResults.map(result => (
-                             <li key={result.id} className="p-4">
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                                    Test run on: {new Date(result.createdAt).toLocaleString()}
-                                </p>
-                                <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap text-sm p-3 bg-gray-50 dark:bg-gray-700/50 rounded-md">{result.output}</p>
-                            </li>
+                           <TestResultItem key={result.id} result={result} prompt={prompt} onEvaluateTest={onEvaluateTest} />
                         ))}
                     </ul>
                 ) : (
@@ -153,7 +210,8 @@ export const PromptDetailView: React.FC<PromptDetailViewProps> = ({ prompt, onCl
   );
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4 backdrop-blur-sm" onClick={onClose}>
+    <>
+    <div className={`fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4 backdrop-blur-sm ${!isCompareModalOpen && prompt ? 'visible' : 'invisible'}`} onClick={onClose}>
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex justify-between items-center p-5 border-b dark:border-gray-700 flex-shrink-0">
@@ -207,5 +265,12 @@ export const PromptDetailView: React.FC<PromptDetailViewProps> = ({ prompt, onCl
         </div>
       </div>
     </div>
+    
+    <PromptComparisonView 
+        isOpen={isCompareModalOpen}
+        onClose={() => setIsCompareModalOpen(false)}
+        prompt={prompt}
+    />
+    </>
   );
 };

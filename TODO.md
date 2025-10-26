@@ -29,12 +29,12 @@ This document outlines the planned features and improvements for the AI Prompt C
     -   [x] Allow users to run the active prompt version against the Gemini API directly from this interface and view the output.
     -   [x] Store the test results (output, date) associated with the specific prompt version that was tested.
 
--   **[ ] 13. Implement AI-Powered Evaluation:**
-    -   [ ] After a test is run, add an "Evaluate with AI" button.
-    -   [ ] This feature will send the prompt, its output, and a predefined rubric to the Gemini API for a quality assessment.
-    -   [ ] The AI will return a score (e.g., 1-10) and qualitative feedback based on criteria like clarity, creativity, and adherence to instructions.
-    -   [ ] Store the evaluation score and feedback with the test result.
+-   **[✔️] 13. Implement AI-Powered Evaluation:**
+    -   [x] After a test is run, add an "Evaluate with AI" button.
+    -   [x] This feature will send the prompt, its output, and a predefined rubric to the Gemini API for a quality assessment.
+    -   [x] The AI will return a score (e.g., 1-10) and qualitative feedback based on criteria like clarity, creativity, and adherence to instructions.
+    -   [x] Store the evaluation score and feedback with the test result.
 
--   **[ ] 14. Implement Version Comparison View:**
-    -   [ ] Create a UI within the "Testing" section to compare test results from different versions side-by-side.
-    -   [ ] Display the prompt text, generated output, AI score, and feedback for each version to help users identify which changes improved the prompt's performance.
+-   **[✔️] 14. Implement Version Comparison View:**
+    -   [x] Create a UI within the "Testing" section to compare test results from different versions side-by-side.
+    -   [x] Display the prompt text, generated output, AI score, and feedback for each version to help users identify which changes improved the prompt's performance.

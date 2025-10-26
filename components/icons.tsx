@@ -137,3 +137,15 @@ export const BeakerIcon = (props: React.SVGProps<SVGSVGElement>) => (
         <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 0 1-.5 1.5l-2.5 3.5a2.25 2.25 0 0 1-3.236 0L2.014 12.32a2.25 2.25 0 0 1-.5-1.5V3.104m7.736 0-1.135 1.135M9.75 3.104l-1.135-1.135m1.135 1.135L12 5.25M9.75 3.104 12 1.125m0 0 2.25 2.025m-2.25-2.025L12 5.25M12 1.125l2.25 2.025M12 5.25v16.125m0 0A2.25 2.25 0 0 0 14.25 22.5h5.508c.52 0 1.02-.204 1.385-.568l.002-.001.002-.002.001-.002a2.15 2.15 0 0 0 .568-1.385v-5.508a2.25 2.25 0 0 0-2.25-2.25H14.25a2.25 2.25 0 0 0-2.25 2.25M12 21.375m0 0A2.25 2.25 0 0 1 9.75 19.125H4.242c-.52 0-1.02.204-1.385.568l-.002.001-.002.002-.001.002a2.15 2.15 0 0 1-.568 1.385v5.508a2.25 2.25 0 0 1 2.25 2.25h5.508a2.25 2.25 0 0 1 2.25-2.25H9.75a2.25 2.25 0 0 1-2.25-2.25" />
     </svg>
 );
+
+export const ArrowsRightLeftIcon = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h18m-7.5-12L21 7.5m0 0L16.5 12M21 7.5H3" />
+    </svg>
+);
+
+export const ExclamationTriangleIcon = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+    </svg>
+);

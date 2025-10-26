@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, Sector } from 'recharts';
 import type { Prompt } from '../types';
@@ -69,7 +70,7 @@ const StatCard = ({ title, value, icon: Icon }: { title: string, value: string |
 );
 
 
-export const StatisticsView: React.FC<StatisticsViewProps> = ({ prompts }) => {
+const StatisticsView: React.FC<StatisticsViewProps> = ({ prompts }) => {
   const [activeIndex, setActiveIndex] = React.useState(0);
 
   const onPieEnter = (_: any, index: number) => {
@@ -77,6 +78,8 @@ export const StatisticsView: React.FC<StatisticsViewProps> = ({ prompts }) => {
   };
 
   const { modalityData, themeData, totalPrompts, mostUsedModality, totalThemes } = useMemo(() => {
+    // Memoize processed data to avoid re-calculation on every render.
+    // The dependency array [prompts] ensures this logic runs only when the raw data changes.
     const modalityCounts = prompts.reduce((acc, prompt) => {
       acc[prompt.modality] = (acc[prompt.modality] || 0) + 1;
       return acc;
@@ -113,6 +116,21 @@ export const StatisticsView: React.FC<StatisticsViewProps> = ({ prompts }) => {
     );
   }
 
+  // FIX: The recharts type definitions are incorrect and do not recognize the valid `activeIndex` prop.
+  // Spreading props from an 'any' object is a workaround to bypass the strict type check.
+  const pieProps: any = {
+    activeIndex,
+    activeShape: renderActiveShape,
+    data: modalityData,
+    cx: "50%",
+    cy: "50%",
+    innerRadius: 80,
+    outerRadius: 110,
+    fill: "#059669",
+    dataKey: "value",
+    onMouseEnter: onPieEnter,
+  };
+
   return (
     <div className="p-4 md:p-8 space-y-12">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -125,22 +143,7 @@ export const StatisticsView: React.FC<StatisticsViewProps> = ({ prompts }) => {
           <h3 className="text-xl font-semibold mb-4 text-center text-gray-700 dark:text-gray-200">Prompts by Modality</h3>
            <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              {/* FIX: The recharts type definitions seem to be incorrect and do not recognize the valid `activeIndex` prop. Using @ts-ignore to suppress the TypeScript error. */}
-              {/* The recharts type definitions for Pie are incorrect and do not recognize the valid `activeIndex` prop. Using @ts-ignore to suppress the TypeScript error. */}
-              {/* eslint-disable-next-line @typescript-eslint/ban-ts-comment */}
-              {/* @ts-ignore */}
-              <Pie
-                activeIndex={activeIndex}
-                activeShape={renderActiveShape}
-                data={modalityData}
-                cx="50%"
-                cy="50%"
-                innerRadius={80}
-                outerRadius={110}
-                fill="#059669"
-                dataKey="value"
-                onMouseEnter={onPieEnter}
-              >
+              <Pie {...pieProps}>
                 {modalityData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
@@ -173,3 +176,5 @@ export const StatisticsView: React.FC<StatisticsViewProps> = ({ prompts }) => {
     </div>
   );
 };
+
+export default StatisticsView;

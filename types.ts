@@ -7,10 +7,16 @@ export enum Modality {
   CODE = 'Code',
 }
 
+export interface Evaluation {
+  score: number; // Score from 1-10
+  feedback: string;
+}
+
 export interface TestResult {
   id: string;
   output: string;
   createdAt: string;
+  evaluation?: Evaluation;
 }
 
 export interface PromptVersion {

@@ -1,10 +1,10 @@
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { PromptModal } from './components/PromptModal';
-import { StatisticsView } from './components/StatisticsView';
+import { ConfirmationModal } from './components/ConfirmationModal';
 import { PromptDetailView } from './components/PromptDetailView';
-import { findRelevantPrompts, runPromptTest } from './services/geminiService';
-import type { Prompt, PromptVersion, TestResult } from './types';
+import { findRelevantPrompts, runPromptTest, evaluateTestResult } from './services/geminiService';
+import type { Prompt, PromptVersion, TestResult, Evaluation } from './types';
 import { Modality } from './types';
 import { useToast } from './components/Toast';
 import { 
@@ -13,6 +13,9 @@ import {
     ExportIcon, TextIcon, ImageIcon, VideoIcon, AudioIcon, CodeIcon, GridIcon,
     SunIcon, MoonIcon, HashtagIcon
 } from './components/icons';
+
+const StatisticsView = lazy(() => import('./components/StatisticsView'));
+
 
 type Theme = 'light' | 'dark';
 
@@ -88,6 +91,15 @@ const App: React.FC = () => {
     }
     return 'light';
   });
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [promptToDeleteId, setPromptToDeleteId] = useState<string | null>(null);
+
+  const ChartLoadingFallback = () => (
+    <div className="flex justify-center items-center h-full bg-white dark:bg-gray-800 rounded-lg shadow-md min-h-[500px]">
+      <p className="text-gray-500 dark:text-gray-400 animate-pulse">Loading Statistics...</p>
+    </div>
+  );
+
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -258,6 +270,48 @@ const App: React.FC = () => {
     }
   };
 
+  const handleEvaluateTest = async (promptId: string, testResultId: string) => {
+    const promptToEvaluate = prompts.find(p => p.id === promptId);
+    if (!promptToEvaluate) return;
+
+    const activeVersion = promptToEvaluate.versions.find(v => v.version === promptToEvaluate.currentVersion);
+    const testResult = activeVersion?.testResults?.find(t => t.id === testResultId);
+
+    if (!activeVersion || !testResult) return;
+
+    try {
+      const evaluation = await evaluateTestResult(activeVersion.promptText, testResult.output);
+
+      const updatePromptWithEvaluation = (prompt: Prompt): Prompt => {
+        const updatedVersions = prompt.versions.map(v => {
+          if (v.version === prompt.currentVersion) {
+            const updatedTestResults = v.testResults?.map(t => {
+              if (t.id === testResultId) {
+                return { ...t, evaluation };
+              }
+              return t;
+            });
+            return { ...v, testResults: updatedTestResults };
+          }
+          return v;
+        });
+        return { ...prompt, versions: updatedVersions };
+      };
+
+      setPrompts(currentPrompts =>
+        currentPrompts.map(p => (p.id === promptId ? updatePromptWithEvaluation(p) : p))
+      );
+      
+      setSelectedPrompt(currentSelected =>
+        currentSelected?.id === promptId ? updatePromptWithEvaluation(currentSelected) : currentSelected
+      );
+
+      addToast(`Evaluation complete! Score: ${evaluation.score}/10`, 'success');
+    } catch (error) {
+       addToast(error instanceof Error ? error.message : 'Evaluation failed.', 'error');
+    }
+  };
+
   const handleAddPrompt = () => {
     setPromptToEdit(null);
     setIsModalOpen(true);
@@ -268,12 +322,21 @@ const App: React.FC = () => {
     setPromptToEdit(prompt);
     setIsModalOpen(true);
   };
+  
+  const handleRequestDelete = (id: string) => {
+    setPromptToDeleteId(id);
+    setIsConfirmModalOpen(true);
+  };
 
-  const handleDeletePrompt = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this prompt?')) {
-        setPrompts(currentPrompts => currentPrompts.filter(p => p.id !== id));
-        setSelectedPrompt(null); // Close detail view if open
+  const handleDeletePrompt = () => {
+    if (promptToDeleteId) {
+        setPrompts(currentPrompts => currentPrompts.filter(p => p.id !== promptToDeleteId));
+        if (selectedPrompt?.id === promptToDeleteId) {
+            setSelectedPrompt(null);
+        }
         addToast('Prompt deleted.', 'info');
+        setPromptToDeleteId(null);
+        setIsConfirmModalOpen(false);
     }
   };
 
@@ -605,7 +668,7 @@ const App: React.FC = () => {
                         <CopyIcon className="w-5 h-5"/>
                       </button>
                       <button onClick={() => handleEditPrompt(prompt)} className="p-2 text-gray-500 hover:text-primary-600 dark:hover:text-primary-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700" title="Edit"><EditIcon className="w-5 h-5"/></button>
-                      <button onClick={() => handleDeletePrompt(prompt.id)} className="p-2 text-gray-500 hover:text-red-600 dark:hover:text-red-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700" title="Delete"><DeleteIcon className="w-5 h-5"/></button>
+                      <button onClick={() => handleRequestDelete(prompt.id)} className="p-2 text-gray-500 hover:text-red-600 dark:hover:text-red-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700" title="Delete"><DeleteIcon className="w-5 h-5"/></button>
                     </div>
                   </div>
                 ))
@@ -617,9 +680,11 @@ const App: React.FC = () => {
               )}
             </div>
           ) : (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
-                <StatisticsView prompts={prompts} />
-            </div>
+            <Suspense fallback={<ChartLoadingFallback />}>
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
+                  <StatisticsView prompts={prompts} />
+              </div>
+            </Suspense>
           )}
         </main>
       </div>
@@ -633,10 +698,18 @@ const App: React.FC = () => {
         prompt={selectedPrompt}
         onClose={() => setSelectedPrompt(null)}
         onEdit={handleEditPrompt}
-        onDelete={handleDeletePrompt}
+        onDelete={handleRequestDelete}
         onCopy={handleCopyPrompt}
         onChangeVersion={handleChangeVersion}
         onRunTest={handleRunTest}
+        onEvaluateTest={handleEvaluateTest}
+      />
+       <ConfirmationModal
+        isOpen={isConfirmModalOpen}
+        onClose={() => setIsConfirmModalOpen(false)}
+        onConfirm={handleDeletePrompt}
+        title="Delete Prompt"
+        message="Are you sure you want to delete this prompt? This action cannot be undone."
       />
     </div>
   );
