@@ -5,14 +5,18 @@ import { PromptDetailView } from './components/PromptDetailView';
 import { findRelevantPrompts } from './services/geminiService';
 import type { Prompt } from './types';
 import { Modality } from './types';
+import { useToast } from './components/Toast';
 import { 
     PlusIcon, EditIcon, DeleteIcon, SearchIcon, 
     SparklesIcon, CopyIcon, CheckIcon, CollectionIcon, StatsIcon, ImportIcon, 
-    ExportIcon, TextIcon, ImageIcon, VideoIcon, AudioIcon, CodeIcon, GridIcon 
+    ExportIcon, TextIcon, ImageIcon, VideoIcon, AudioIcon, CodeIcon, GridIcon,
+    SunIcon, MoonIcon
 } from './components/icons';
 
+type Theme = 'light' | 'dark';
 
 const App: React.FC = () => {
+  const { addToast } = useToast();
   const [prompts, setPrompts] = useState<Prompt[]>(() => {
     try {
       const savedPrompts = localStorage.getItem('prompts');
@@ -42,7 +46,28 @@ const App: React.FC = () => {
   const [filteredPrompts, setFilteredPrompts] = useState<Prompt[]>([]);
   const [modalityFilter, setModalityFilter] = useState<Modality | null>(null);
   const [sortBy, setSortBy] = useState('createdAt-desc');
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window !== 'undefined') {
+      const savedTheme = localStorage.getItem('theme') as Theme | null;
+      if (savedTheme) return savedTheme;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    return 'light';
+  });
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const handleThemeToggle = () => {
+    setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'));
+  };
 
   useEffect(() => {
     localStorage.setItem('prompts', JSON.stringify(prompts));
@@ -115,15 +140,14 @@ const App: React.FC = () => {
 
 
   const handleSavePrompt = (prompt: Prompt) => {
-    setPrompts(prevPrompts => {
-      const existingIndex = prevPrompts.findIndex(p => p.id === prompt.id);
-      if (existingIndex > -1) {
-        const newPrompts = [...prevPrompts];
-        newPrompts[existingIndex] = prompt;
-        return newPrompts;
-      }
-      return [prompt, ...prevPrompts];
-    });
+    const existingPrompt = prompts.find(p => p.id === prompt.id);
+    if (existingPrompt) {
+        setPrompts(prompts.map(p => p.id === prompt.id ? prompt : p));
+        addToast('Prompt updated successfully!', 'success');
+    } else {
+        setPrompts(prevPrompts => [prompt, ...prevPrompts]);
+        addToast('Prompt created successfully!', 'success');
+    }
   };
 
   const handleAddPrompt = () => {
@@ -141,13 +165,13 @@ const App: React.FC = () => {
     if (window.confirm('Are you sure you want to delete this prompt?')) {
         setPrompts(prompts.filter(p => p.id !== id));
         setSelectedPrompt(null); // Close detail view if open
+        addToast('Prompt deleted.', 'info');
     }
   };
 
-  const handleCopyPrompt = (text: string, id: string) => {
+  const handleCopyPrompt = (text: string) => {
     navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
+    addToast('Prompt copied to clipboard!', 'success');
   };
   
   const handleCardClick = (prompt: Prompt) => {
@@ -204,6 +228,13 @@ const App: React.FC = () => {
             </div>
         </nav>
          <div className="px-4 py-4 border-t dark:border-gray-700 space-y-2">
+             <button
+                onClick={handleThemeToggle}
+                className="w-full text-left flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                >
+                {theme === 'light' ? <MoonIcon className="w-5 h-5" /> : <SunIcon className="w-5 h-5" />}
+                <span>{theme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>
+            </button>
             <button className="w-full text-left flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
                 <ImportIcon className="w-5 h-5"/><span>Import</span>
             </button>
@@ -291,8 +322,8 @@ const App: React.FC = () => {
                         </div>
                     </div>
                     <div className="flex justify-end items-center px-3 pb-3 space-x-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
-                      <button onClick={() => handleCopyPrompt(prompt.promptText, prompt.id)} className="p-2 text-gray-500 hover:text-primary-600 dark:hover:text-primary-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700" title="Copy Prompt">
-                        {copiedId === prompt.id ? <CheckIcon className="w-5 h-5 text-green-500"/> : <CopyIcon className="w-5 h-5"/>}
+                      <button onClick={() => handleCopyPrompt(prompt.promptText)} className="p-2 text-gray-500 hover:text-primary-600 dark:hover:text-primary-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700" title="Copy Prompt">
+                        <CopyIcon className="w-5 h-5"/>
                       </button>
                       <button onClick={() => handleEditPrompt(prompt)} className="p-2 text-gray-500 hover:text-primary-600 dark:hover:text-primary-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700" title="Edit"><EditIcon className="w-5 h-5"/></button>
                       <button onClick={() => handleDeletePrompt(prompt.id)} className="p-2 text-gray-500 hover:text-red-600 dark:hover:text-red-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700" title="Delete"><DeleteIcon className="w-5 h-5"/></button>
@@ -325,7 +356,6 @@ const App: React.FC = () => {
         onEdit={handleEditPrompt}
         onDelete={handleDeletePrompt}
         onCopy={handleCopyPrompt}
-        copiedId={copiedId}
       />
     </div>
   );

@@ -2,7 +2,7 @@ import React from 'react';
 import type { Prompt } from '../types';
 import { Modality } from '../types';
 import { 
-    XIcon, CopyIcon, EditIcon, DeleteIcon, CheckIcon,
+    XIcon, CopyIcon, EditIcon, DeleteIcon,
     TextIcon, ImageIcon, VideoIcon, AudioIcon, CodeIcon
 } from './icons';
 
@@ -11,8 +11,7 @@ interface PromptDetailViewProps {
   onClose: () => void;
   onEdit: (prompt: Prompt) => void;
   onDelete: (id: string) => void;
-  onCopy: (text: string, id: string) => void;
-  copiedId: string | null;
+  onCopy: (text: string) => void;
 }
 
 const modalityIcons: Record<Modality, React.FC<React.SVGProps<SVGSVGElement>>> = {
@@ -23,7 +22,7 @@ const modalityIcons: Record<Modality, React.FC<React.SVGProps<SVGSVGElement>>> =
     [Modality.CODE]: CodeIcon,
 };
 
-export const PromptDetailView: React.FC<PromptDetailViewProps> = ({ prompt, onClose, onEdit, onDelete, onCopy, copiedId }) => {
+export const PromptDetailView: React.FC<PromptDetailViewProps> = ({ prompt, onClose, onEdit, onDelete, onCopy }) => {
   if (!prompt) return null;
 
   const ModalityIcon = modalityIcons[prompt.modality];
@@ -84,9 +83,9 @@ export const PromptDetailView: React.FC<PromptDetailViewProps> = ({ prompt, onCl
 
         {/* Footer Actions */}
         <div className="flex-shrink-0 flex justify-end items-center p-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-b-xl space-x-3">
-          <button onClick={() => onCopy(prompt.promptText, prompt.id)} className="px-4 py-2 text-sm font-medium flex items-center space-x-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600">
-             {copiedId === prompt.id ? <CheckIcon className="w-5 h-5 text-green-500"/> : <CopyIcon className="w-5 h-5"/>}
-             <span>{copiedId === prompt.id ? 'Copied!' : 'Copy Prompt'}</span>
+          <button onClick={() => onCopy(prompt.promptText)} className="px-4 py-2 text-sm font-medium flex items-center space-x-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600">
+             <CopyIcon className="w-5 h-5"/>
+             <span>Copy Prompt</span>
           </button>
           <button onClick={() => onEdit(prompt)} className="px-4 py-2 text-sm font-medium flex items-center space-x-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600">
             <EditIcon className="w-5 h-5"/>
