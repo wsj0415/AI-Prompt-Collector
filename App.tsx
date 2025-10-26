@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { PromptModal } from './components/PromptModal';
 import { StatisticsView } from './components/StatisticsView';
 import { PromptDetailView } from './components/PromptDetailView';
-import { findRelevantPrompts } from './services/geminiService';
-import type { Prompt } from './types';
+import { findRelevantPrompts, runPromptTest } from './services/geminiService';
+import type { Prompt, PromptVersion, TestResult } from './types';
 import { Modality } from './types';
 import { useToast } from './components/Toast';
 import { 
@@ -15,18 +16,49 @@ import {
 
 type Theme = 'light' | 'dark';
 
+const getActivePromptText = (prompt: Prompt | null): string => {
+    if (!prompt || !prompt.versions || prompt.versions.length === 0) return '';
+    const activeVersion = prompt.versions.find(v => v.version === prompt.currentVersion);
+    return activeVersion ? activeVersion.promptText : '';
+};
+
+// Data migration function for backward compatibility
+const migratePrompts = (data: any[]): Prompt[] => {
+    return data.map(item => {
+        if (item.promptText && !item.versions) {
+            // This is the old format
+            return {
+                ...item,
+                versions: [{
+                    version: 1,
+                    promptText: item.promptText,
+                    createdAt: item.createdAt || new Date().toISOString()
+                }],
+                currentVersion: 1,
+                promptText: undefined, // remove old property
+            };
+        }
+        return item;
+    });
+};
+
+
 const App: React.FC = () => {
   const { addToast } = useToast();
   const [prompts, setPrompts] = useState<Prompt[]>(() => {
     try {
-      const savedPrompts = localStorage.getItem('prompts');
-      return savedPrompts ? JSON.parse(savedPrompts) : [
-          // DEMO DATA
-           {id: "1", title: "Sci-Fi Spaceship Concept Art", promptText: "Generate a concept art of a sleek, futuristic spaceship exploring a nebula. The design should be minimalist with glowing blue accents. Style of Syd Mead.", modality: Modality.IMAGE, theme: "Concept Art", tags: ["sci-fi", "spaceship", "Syd Mead"], notes: "Great for generating desktop wallpapers. Adding '4K resolution' can improve quality.", createdAt: "2025-10-26T10:00:00Z"},
-           {id: "2", title: "Python Function for Data Cleaning", promptText: "Write a Python function that takes a pandas DataFrame as input and removes duplicate rows, fills missing numerical values with the mean, and trims whitespace from all string columns.", modality: Modality.CODE, theme: "Data Science", tags: ["python", "pandas", "data cleaning"], notes: "", createdAt: "2025-10-26T11:00:00Z"},
-           {id: "3", title: "Marketing Copy for a Coffee Shop", promptText: "Create a short, catchy marketing paragraph for a new artisanal coffee shop. Emphasize the cozy atmosphere, ethically sourced beans, and skilled baristas. Tone should be warm and inviting.", modality: Modality.TEXT, theme: "Marketing Copy", tags: ["coffee", "advertising", "local business"], notes: "Can be adapted for social media posts or website copy.", createdAt: "2025-10-26T12:00:00Z"},
-           {id: "4", title: "Epic Movie Trailer VO", promptText: "Generate a voice-over script for an epic fantasy movie trailer. The tone should be deep, dramatic, and mysterious. Include phrases like 'In a world of shadow...' and 'A hero will rise.'.", modality: Modality.AUDIO, theme: "Voice Over", tags: ["movie trailer", "fantasy", "dramatic"], notes: "", createdAt: "2025-10-25T14:00:00Z"},
-           {id: "5", title: "Short cooking tutorial video", promptText: "A 1-minute video showing how to make a perfect omelette. Start with ingredients display, show cracking eggs, whisking, pouring into a hot pan, and the final flip. Upbeat background music.", modality: Modality.VIDEO, theme: "Cooking Tutorial", tags: ["food", "cooking", "short video"], notes: "", createdAt: "2025-10-24T18:00:00Z"},
+      const savedData = localStorage.getItem('prompts');
+      const parsedData = savedData ? JSON.parse(savedData) : [];
+      if (parsedData.length > 0) {
+        return migratePrompts(parsedData);
+      }
+      // DEMO DATA if no saved data
+      return [
+           {id: "1", title: "Sci-Fi Spaceship Concept Art", versions: [{version: 1, promptText: "Generate a concept art of a sleek, futuristic spaceship exploring a nebula. The design should be minimalist with glowing blue accents. Style of Syd Mead.", createdAt: "2025-10-26T10:00:00Z", testResults: []}], currentVersion: 1, modality: Modality.IMAGE, theme: "Concept Art", tags: ["sci-fi", "spaceship", "Syd Mead"], notes: "Great for generating desktop wallpapers. Adding '4K resolution' can improve quality.", createdAt: "2025-10-26T10:00:00Z"},
+           {id: "2", title: "Python Function for Data Cleaning", versions: [{version: 1, promptText: "Write a Python function that takes a pandas DataFrame as input and removes duplicate rows, fills missing numerical values with the mean, and trims whitespace from all string columns.", createdAt: "2025-10-26T11:00:00Z", testResults: []}], currentVersion: 1, modality: Modality.CODE, theme: "Data Science", tags: ["python", "pandas", "data cleaning"], notes: "", createdAt: "2025-10-26T11:00:00Z"},
+           {id: "3", title: "Marketing Copy for a Coffee Shop", versions: [{version: 1, promptText: "Create a short, catchy marketing paragraph for a new artisanal coffee shop. Emphasize the cozy atmosphere, ethically sourced beans, and skilled baristas. Tone should be warm and inviting.", createdAt: "2025-10-26T12:00:00Z", testResults: []}], currentVersion: 1, modality: Modality.TEXT, theme: "Marketing Copy", tags: ["coffee", "advertising", "local business"], notes: "Can be adapted for social media posts or website copy.", createdAt: "2025-10-26T12:00:00Z"},
+           {id: "4", title: "Epic Movie Trailer VO", versions: [{version: 1, promptText: "Generate a voice-over script for an epic fantasy movie trailer. The tone should be deep, dramatic, and mysterious. Include phrases like 'In a world of shadow...' and 'A hero will rise.'.", createdAt: "2025-10-25T14:00:00Z", testResults: []}], currentVersion: 1, modality: Modality.AUDIO, theme: "Voice Over", tags: ["movie trailer", "fantasy", "dramatic"], notes: "", createdAt: "2025-10-25T14:00:00Z"},
+           {id: "5", title: "Short cooking tutorial video", versions: [{version: 1, promptText: "A 1-minute video showing how to make a perfect omelette. Start with ingredients display, show cracking eggs, whisking, pouring into a hot pan, and the final flip. Upbeat background music.", createdAt: "2025-10-24T18:00:00Z", testResults: []}], currentVersion: 1, modality: Modality.VIDEO, theme: "Cooking Tutorial", tags: ["food", "cooking", "short video"], notes: "", createdAt: "2025-10-24T18:00:00Z"},
       ];
     } catch (error) {
       console.error("Failed to parse prompts from localStorage", error);
@@ -125,7 +157,7 @@ const App: React.FC = () => {
       const lowerCaseQuery = searchQuery.toLowerCase();
       promptsToDisplay = promptsAfterFilters.filter(p =>
         p.title.toLowerCase().includes(lowerCaseQuery) ||
-        p.promptText.toLowerCase().includes(lowerCaseQuery) ||
+        getActivePromptText(p).toLowerCase().includes(lowerCaseQuery) ||
         p.theme.toLowerCase().includes(lowerCaseQuery) ||
         p.tags.some(tag => tag.toLowerCase().includes(lowerCaseQuery))
       );
@@ -158,13 +190,71 @@ const App: React.FC = () => {
 
 
   const handleSavePrompt = (prompt: Prompt) => {
-    const existingPrompt = prompts.find(p => p.id === prompt.id);
-    if (existingPrompt) {
+    const isEditing = prompts.some(p => p.id === prompt.id);
+    if (isEditing) {
         setPrompts(prompts.map(p => p.id === prompt.id ? prompt : p));
         addToast('Prompt updated successfully!', 'success');
     } else {
         setPrompts(prevPrompts => [prompt, ...prevPrompts]);
         addToast('Prompt created successfully!', 'success');
+    }
+  };
+  
+  const handleChangeVersion = (promptId: string, version: number) => {
+    setPrompts(currentPrompts =>
+        currentPrompts.map(p => {
+            if (p.id === promptId) {
+                return { ...p, currentVersion: version };
+            }
+            return p;
+        })
+    );
+    // Also update the selectedPrompt if it's the one being changed
+    setSelectedPrompt(currentSelected => 
+        currentSelected?.id === promptId ? { ...currentSelected, currentVersion: version } : currentSelected
+    );
+    addToast(`Set Version ${version} as active.`, 'info');
+  };
+
+  const handleRunTest = async (promptId: string) => {
+    const promptToTest = prompts.find(p => p.id === promptId);
+    if (!promptToTest) return;
+
+    const activeVersion = promptToTest.versions.find(v => v.version === promptToTest.currentVersion);
+    if (!activeVersion) return;
+
+    try {
+      const output = await runPromptTest(activeVersion.promptText);
+      const newTestResult: TestResult = {
+        id: new Date().toISOString(),
+        output,
+        createdAt: new Date().toISOString(),
+      };
+
+      const updatePromptWithTestResult = (prompt: Prompt): Prompt => {
+        const updatedVersions = prompt.versions.map(v => {
+          if (v.version === prompt.currentVersion) {
+            return {
+              ...v,
+              testResults: [newTestResult, ...(v.testResults || [])],
+            };
+          }
+          return v;
+        });
+        return { ...prompt, versions: updatedVersions };
+      };
+
+      setPrompts(currentPrompts =>
+        currentPrompts.map(p => (p.id === promptId ? updatePromptWithTestResult(p) : p))
+      );
+      
+      setSelectedPrompt(currentSelected =>
+        currentSelected?.id === promptId ? updatePromptWithTestResult(currentSelected) : currentSelected
+      );
+      
+      addToast('Test completed successfully!', 'success');
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Test failed.', 'error');
     }
   };
 
@@ -181,7 +271,7 @@ const App: React.FC = () => {
 
   const handleDeletePrompt = (id: string) => {
     if (window.confirm('Are you sure you want to delete this prompt?')) {
-        setPrompts(prompts.filter(p => p.id !== id));
+        setPrompts(currentPrompts => currentPrompts.filter(p => p.id !== id));
         setSelectedPrompt(null); // Close detail view if open
         addToast('Prompt deleted.', 'info');
     }
@@ -294,10 +384,12 @@ const App: React.FC = () => {
                     continue;
                 }
 
+                const promptText = values[headerMap.promptText];
                 const prompt: Prompt = {
                     id,
                     title: values[headerMap.title],
-                    promptText: values[headerMap.promptText],
+                    versions: [{ version: 1, promptText, createdAt: values[headerMap.createdAt] || new Date().toISOString() }],
+                    currentVersion: 1,
                     modality,
                     theme: values[headerMap.theme],
                     tags: values[headerMap.tags] ? values[headerMap.tags].split(',').map(t => t.trim()) : [],
@@ -495,7 +587,7 @@ const App: React.FC = () => {
                                </span>
                            </div>
                         </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 line-clamp-4">{prompt.promptText}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 line-clamp-4">{getActivePromptText(prompt)}</p>
                     </div>
                     <div className="px-5 pb-4">
                          {prompt.theme && 
@@ -509,7 +601,7 @@ const App: React.FC = () => {
                         </div>
                     </div>
                     <div className="flex justify-end items-center px-3 pb-3 space-x-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
-                      <button onClick={() => handleCopyPrompt(prompt.promptText)} className="p-2 text-gray-500 hover:text-primary-600 dark:hover:text-primary-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700" title="Copy Prompt">
+                      <button onClick={() => handleCopyPrompt(getActivePromptText(prompt))} className="p-2 text-gray-500 hover:text-primary-600 dark:hover:text-primary-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700" title="Copy Prompt">
                         <CopyIcon className="w-5 h-5"/>
                       </button>
                       <button onClick={() => handleEditPrompt(prompt)} className="p-2 text-gray-500 hover:text-primary-600 dark:hover:text-primary-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700" title="Edit"><EditIcon className="w-5 h-5"/></button>
@@ -543,6 +635,8 @@ const App: React.FC = () => {
         onEdit={handleEditPrompt}
         onDelete={handleDeletePrompt}
         onCopy={handleCopyPrompt}
+        onChangeVersion={handleChangeVersion}
+        onRunTest={handleRunTest}
       />
     </div>
   );

@@ -125,6 +125,10 @@ export const StatisticsView: React.FC<StatisticsViewProps> = ({ prompts }) => {
           <h3 className="text-xl font-semibold mb-4 text-center text-gray-700 dark:text-gray-200">Prompts by Modality</h3>
            <ResponsiveContainer width="100%" height="100%">
             <PieChart>
+              {/* FIX: The recharts type definitions seem to be incorrect and do not recognize the valid `activeIndex` prop. Using @ts-ignore to suppress the TypeScript error. */}
+              {/* The recharts type definitions for Pie are incorrect and do not recognize the valid `activeIndex` prop. Using @ts-ignore to suppress the TypeScript error. */}
+              {/* eslint-disable-next-line @typescript-eslint/ban-ts-comment */}
+              {/* @ts-ignore */}
               <Pie
                 activeIndex={activeIndex}
                 activeShape={renderActiveShape}
@@ -152,6 +156,7 @@ export const StatisticsView: React.FC<StatisticsViewProps> = ({ prompts }) => {
               <XAxis type="number" />
               <YAxis dataKey="name" type="category" width={100} tick={{fontSize: 12}}/>
               <Tooltip
+                animationDuration={0}
                 contentStyle={{
                   backgroundColor: 'rgba(255, 255, 255, 0.8)',
                   backdropFilter: 'blur(2px)',
@@ -160,7 +165,7 @@ export const StatisticsView: React.FC<StatisticsViewProps> = ({ prompts }) => {
                 }}
               />
               <Legend />
-              <Bar dataKey="value" name="Prompt Count" fill="#10b981" />
+              <Bar dataKey="value" name="Prompt Count" fill="#10b981" cursor="pointer" />
             </BarChart>
           </ResponsiveContainer>
         </div>

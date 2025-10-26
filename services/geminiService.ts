@@ -61,13 +61,22 @@ export const findRelevantPrompts = async (allPrompts: Prompt[], searchQuery: str
   }
 
   try {
-     const promptObjectsForAI = allPrompts.map(({ id, title, theme, tags }) => ({ id, title, theme, tags }));
+     const promptObjectsForAI = allPrompts.map(({ id, title, theme, tags, versions, currentVersion }) => {
+        const activeVersion = versions.find(v => v.version === currentVersion);
+        return { 
+            id, 
+            title, 
+            theme, 
+            tags,
+            promptTextSnippet: activeVersion?.promptText.substring(0, 200) || ''
+        };
+     });
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: `User is searching for prompts related to: "${searchQuery}".
       
-      Here is a list of available prompts:
+      Here is a list of available prompts (with a snippet of their text for context):
       ${JSON.stringify(promptObjectsForAI)}
       
       Analyze the user's search query and the list of prompts. Return a JSON array containing the IDs of the prompts that are most semantically relevant to the user's search. Order the IDs from most to least relevant.`,
@@ -87,5 +96,18 @@ export const findRelevantPrompts = async (allPrompts: Prompt[], searchQuery: str
   } catch (error) {
     console.error("Error with AI-powered search:", error);
     throw new Error("AI search failed. Please try a different query.");
+  }
+};
+
+export const runPromptTest = async (promptText: string): Promise<string> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: promptText,
+    });
+    return response.text;
+  } catch (error) {
+    console.error("Error running prompt test:", error);
+    throw new Error("Failed to get response from AI. Please try again.");
   }
 };

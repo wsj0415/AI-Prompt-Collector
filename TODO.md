@@ -2,32 +2,39 @@
 
 This document outlines the planned features and improvements for the AI Prompt Collector application.
 
-**Phase 4: User Experience & Theming**
+**Phase 4: User Experience & Theming (Completed)**
 
--   **[✔️] 6. Implement Dark/Light Mode Toggle:**
-    -   [x] Add a UI control (e.g., a toggle switch in the sidebar or header) to allow users to manually switch between light and dark themes.
-    -   [x] Use JavaScript to add/remove the `dark` class on the `<html>` element.
-    -   [x] Persist the user's theme preference in `localStorage` so it's remembered across sessions.
-    -   [x] Ensure all components are fully theme-aware and have optimal contrast in both modes.
+-   [✔️] Implement Dark/Light Mode Toggle
+-   [✔️] Implement a Toast Notification System
 
--   **[✔️] 7. Implement a Toast Notification System:**
-    -   [x] Replace the simple "Copied!" text feedback with a more robust toast notification system.
-    -   [x] Use toast notifications for other actions like "Prompt Saved," "Prompt Deleted," "Import Successful," and API error messages.
-    -   [x] Position notifications in a non-intrusive corner of the screen (e.g., top-right or bottom-center).
+**Phase 5: Data Portability & Advanced Filtering (Completed)**
 
-**Phase 5: Data Portability & Advanced Filtering**
+-   [✔️] Implement JSON Export Functionality
+-   [✔️] Implement CSV Import Functionality
+-   [✔️] Add Quick Filters for Themes/Tags
 
--   **[✔️] 8. Implement JSON Export Functionality:**
-    -   [x] Added logic to the "Export" button to download all prompts as a `.json` file.
-    -   [ ] (Future) Add option to export as CSV.
+---
+### **NEW: Phase 6: Advanced Prompt Management & Versioning**
 
--   **[✔️] 9. Implement CSV Import Functionality:**
-    -   [x] Add logic to the "Import" button that opens a file selection dialog for `.csv` files.
-    -   [x] Implement a CSV parsing function that reads the file and converts each row into a valid `Prompt` object.
-    -   [x] Provide feedback to the user on the import process (e.g., "Successfully imported 15 prompts").
-    -   [x] Include robust error handling for malformed CSV files or incorrect data types.
+-   **[✔️] 11. Implement Prompt Version Control:**
+    -   [x] Update the data structure to store a history of `promptText` changes for each prompt.
+    -   [x] Modify the "Edit" functionality to create a new version when the prompt text is changed, rather than overwriting it.
+    -   [x] Add a "Version History" section to the `PromptDetailView` to list all available versions.
+    -   [x] Implement a mechanism to revert to or set a previous version as the "active" version.
 
--   **[✔️] 10. Add Quick Filters for Themes/Tags:**
-    -   [x] In the sidebar, dynamically identified the 5 most frequently used themes.
-    -   [x] Displayed these as clickable pills under a "Quick Filters" section.
-    -   [x] Clicking a theme pill filters the main view to show only prompts with that theme, and works with other filters.
+### **NEW: Phase 7: Prompt Testing & Evaluation Framework**
+
+-   **[✔️] 12. Implement Prompt Testing Interface:**
+    -   [x] In the `PromptDetailView`, add a "Testing" tab or section.
+    -   [x] Allow users to run the active prompt version against the Gemini API directly from this interface and view the output.
+    -   [x] Store the test results (output, date) associated with the specific prompt version that was tested.
+
+-   **[ ] 13. Implement AI-Powered Evaluation:**
+    -   [ ] After a test is run, add an "Evaluate with AI" button.
+    -   [ ] This feature will send the prompt, its output, and a predefined rubric to the Gemini API for a quality assessment.
+    -   [ ] The AI will return a score (e.g., 1-10) and qualitative feedback based on criteria like clarity, creativity, and adherence to instructions.
+    -   [ ] Store the evaluation score and feedback with the test result.
+
+-   **[ ] 14. Implement Version Comparison View:**
+    -   [ ] Create a UI within the "Testing" section to compare test results from different versions side-by-side.
+    -   [ ] Display the prompt text, generated output, AI score, and feedback for each version to help users identify which changes improved the prompt's performance.

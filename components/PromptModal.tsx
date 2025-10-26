@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import type { Prompt } from '../types';
+import type { Prompt, PromptVersion } from '../types';
 import { Modality } from '../types';
 import { generateTagsAndTheme } from '../services/geminiService';
 
@@ -21,10 +21,16 @@ export const PromptModal: React.FC<PromptModalProps> = ({ isOpen, onClose, onSav
   const [isCategorizing, setIsCategorizing] = useState(false);
   const [error, setError] = useState('');
   
+  const getActivePromptText = (prompt: Prompt | null): string => {
+    if (!prompt) return '';
+    const activeVersion = prompt.versions.find(v => v.version === prompt.currentVersion);
+    return activeVersion ? activeVersion.promptText : '';
+  };
+
   useEffect(() => {
     if (promptToEdit) {
       setTitle(promptToEdit.title);
-      setPromptText(promptToEdit.promptText);
+      setPromptText(getActivePromptText(promptToEdit));
       setModality(promptToEdit.modality);
       setTheme(promptToEdit.theme);
       setTags(promptToEdit.tags);
@@ -65,17 +71,50 @@ export const PromptModal: React.FC<PromptModalProps> = ({ isOpen, onClose, onSav
         setError('Title and Prompt Text are required.');
         return;
     }
-    const newPrompt: Prompt = {
-      id: promptToEdit ? promptToEdit.id : new Date().toISOString(),
-      title,
-      promptText,
-      modality,
-      theme,
-      tags,
-      notes,
-      createdAt: promptToEdit ? promptToEdit.createdAt : new Date().toISOString(),
-    };
-    onSave(newPrompt);
+
+    if (promptToEdit) { // Editing existing prompt
+        const originalPromptText = getActivePromptText(promptToEdit);
+        let newVersions = [...promptToEdit.versions];
+        let newCurrentVersion = promptToEdit.currentVersion;
+
+        // Create a new version only if the prompt text has actually changed
+        if (originalPromptText !== promptText) {
+            const newVersionNumber = Math.max(0, ...newVersions.map(v => v.version)) + 1;
+            const newVersion: PromptVersion = {
+                version: newVersionNumber,
+                promptText: promptText,
+                createdAt: new Date().toISOString()
+            };
+            newVersions.push(newVersion);
+            newCurrentVersion = newVersionNumber;
+        }
+
+        const updatedPrompt: Prompt = {
+            ...promptToEdit,
+            title,
+            modality,
+            theme,
+            tags,
+            notes,
+            versions: newVersions,
+            currentVersion: newCurrentVersion,
+        };
+        onSave(updatedPrompt);
+
+    } else { // Creating new prompt
+         const newPrompt: Prompt = {
+            id: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+            title,
+            modality,
+            theme,
+            tags,
+            notes,
+            versions: [{ version: 1, promptText, createdAt: new Date().toISOString() }],
+            currentVersion: 1,
+        };
+        onSave(newPrompt);
+    }
     onClose();
   };
 
@@ -127,7 +166,7 @@ export const PromptModal: React.FC<PromptModalProps> = ({ isOpen, onClose, onSav
         </form>
         <div className="flex justify-end items-center p-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-b-lg">
           <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white dark:bg-gray-600 dark:text-gray-200 border border-gray-300 dark:border-gray-500 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700">Cancel</button>
-          <button onClick={handleSubmit} className="ml-3 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">Save Prompt</button>
+          <button type="submit" form="prompt-form" onClick={handleSubmit} className="ml-3 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">Save Prompt</button>
         </div>
       </div>
     </div>
