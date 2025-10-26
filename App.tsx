@@ -391,8 +391,8 @@ const App: React.FC = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.name.endsWith('.csv')) {
-        addToast('Please select a .csv file.', 'error');
+    if (!file.name.endsWith('.json')) {
+        addToast('Please select a .json file.', 'error');
         return;
     }
 
@@ -405,85 +405,37 @@ const App: React.FC = () => {
         }
 
         try {
-            const lines = text.split('\n').filter(line => line.trim() !== '');
-            if (lines.length < 2) {
-                throw new Error("CSV file is empty or has only a header.");
-            }
-            
-            const headerLine = lines[0].trim();
-            // A simple CSV parser to handle quoted fields.
-            const parseCsvLine = (line: string): string[] => {
-                const result: string[] = [];
-                let current = '';
-                let inQuotes = false;
-                for (let i = 0; i < line.length; i++) {
-                    const char = line[i];
-                    if (char === '"' && (i === 0 || line[i-1] !== '\\')) { // Handle escaped quotes later if needed
-                        inQuotes = !inQuotes;
-                    } else if (char === ',' && !inQuotes) {
-                        result.push(current.trim().replace(/^"|"$/g, ''));
-                        current = '';
-                    } else {
-                        current += char;
-                    }
-                }
-                result.push(current.trim().replace(/^"|"$/g, ''));
-                return result;
-            }
+            const importedData = JSON.parse(text);
 
-            const header = parseCsvLine(headerLine);
-            const expectedHeader = ['id', 'title', 'promptText', 'modality', 'theme', 'tags', 'notes', 'createdAt'];
-            
-            if(header.length !== expectedHeader.length || !header.every((h, i) => h === expectedHeader[i])) {
-                 throw new Error(`Invalid CSV header. Expected: ${expectedHeader.join(',')}`);
+            if (!Array.isArray(importedData)) {
+                throw new Error("Invalid JSON format. The file should contain an array of prompts.");
             }
             
-            const headerMap = header.reduce((acc, h, i) => ({...acc, [h]: i}), {} as Record<string, number>);
+            const importedPrompts: Prompt[] = migratePrompts(importedData);
 
             const existingIds = new Set(prompts.map(p => p.id));
             const newPrompts: Prompt[] = [];
             let skippedCount = 0;
+            let invalidCount = 0;
 
-            for (let i = 1; i < lines.length; i++) {
-                const values = parseCsvLine(lines[i]);
-                if (values.length !== header.length) {
-                    console.warn(`Skipping malformed row: ${lines[i]}`);
+            for (const prompt of importedPrompts) {
+                if (!prompt.id || !prompt.title || !prompt.versions || !prompt.modality) {
+                    invalidCount++;
                     continue;
                 }
 
-                const id = values[headerMap.id];
-                if (!id) continue;
-
-                if (existingIds.has(id)) {
+                if (existingIds.has(prompt.id)) {
                     skippedCount++;
                     continue;
                 }
                 
-                const modality = values[headerMap.modality] as Modality;
-                if (!Object.values(Modality).includes(modality)) {
-                    console.warn(`Skipping row with invalid modality: ${modality}`);
-                    continue;
-                }
-
-                const promptText = values[headerMap.promptText];
-                const prompt: Prompt = {
-                    id,
-                    title: values[headerMap.title],
-                    versions: [{ version: 1, promptText, createdAt: values[headerMap.createdAt] || new Date().toISOString() }],
-                    currentVersion: 1,
-                    modality,
-                    theme: values[headerMap.theme],
-                    tags: values[headerMap.tags] ? values[headerMap.tags].split(',').map(t => t.trim()) : [],
-                    notes: values[headerMap.notes],
-                    createdAt: values[headerMap.createdAt] || new Date().toISOString(),
-                };
                 newPrompts.push(prompt);
-                existingIds.add(id);
+                existingIds.add(prompt.id);
             }
 
             if (newPrompts.length > 0) {
                  setPrompts(prev => [...prev, ...newPrompts]);
-                 addToast(`Successfully imported ${newPrompts.length} prompts.`, 'success');
+                 addToast(`Successfully imported ${newPrompts.length} new prompts.`, 'success');
             } else {
                  addToast('No new prompts were imported.', 'info');
             }
@@ -491,9 +443,12 @@ const App: React.FC = () => {
             if (skippedCount > 0) {
                 addToast(`Skipped ${skippedCount} prompts with duplicate IDs.`, 'info');
             }
+            if (invalidCount > 0) {
+                 addToast(`Skipped ${invalidCount} invalid prompt entries.`, 'info');
+            }
 
         } catch (error) {
-            addToast(error instanceof Error ? error.message : 'Failed to parse CSV file.', 'error');
+            addToast(error instanceof Error ? error.message : 'Failed to parse JSON file.', 'error');
         } finally {
             if(event.target) {
                 event.target.value = '';
@@ -592,7 +547,7 @@ const App: React.FC = () => {
                 type="file"
                 ref={importInputRef}
                 className="hidden"
-                accept=".csv"
+                accept="application/json"
                 onChange={handleFileImport}
              />
             <button onClick={handleImportClick} className="w-full text-left flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
