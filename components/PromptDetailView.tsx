@@ -51,7 +51,7 @@ const TestResultItem: React.FC<{
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                     Test run on: {new Date(result.createdAt).toLocaleString()}
                 </p>
-                { !result.evaluation &&
+                { prompt.modality !== Modality.IMAGE && prompt.modality !== Modality.VIDEO && !result.evaluation &&
                     <button
                         onClick={handleEvaluate}
                         disabled={isEvaluating}
@@ -62,7 +62,17 @@ const TestResultItem: React.FC<{
                     </button>
                 }
             </div>
-            <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap text-sm p-3 bg-gray-50 dark:bg-gray-700/50 rounded-md">{result.output}</p>
+            {prompt.modality === Modality.IMAGE ? (
+                <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-md flex justify-center">
+                    <img src={result.output} alt="Generated art for prompt" className="rounded-md max-w-full h-auto max-h-96" />
+                </div>
+            ) : prompt.modality === Modality.VIDEO ? (
+                <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-md flex justify-center">
+                    <video controls src={result.output} className="rounded-md max-w-full h-auto max-h-96" />
+                </div>
+            ) : (
+                <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap text-sm p-3 bg-gray-50 dark:bg-gray-700/50 rounded-md">{result.output}</p>
+            )}
             { result.evaluation &&
                 <div className="p-3 bg-primary-50 dark:bg-primary-900/20 rounded-lg border border-primary-200 dark:border-primary-800/50">
                     <div className="flex items-center space-x-3 mb-1">
@@ -186,13 +196,21 @@ export const PromptDetailView: React.FC<PromptDetailViewProps> = ({ prompt, onCl
                 className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
                 <BeakerIcon className="w-5 h-5 mr-2"/>
-                {isTesting ? 'Running Test...' : 'Run Test'}
+                {isTesting 
+                    ? (prompt.modality === Modality.IMAGE ? 'Generating...' : prompt.modality === Modality.VIDEO ? 'Generating video...' : 'Running...')
+                    : (prompt.modality === Modality.IMAGE ? 'Generate Image' : prompt.modality === Modality.VIDEO ? 'Generate Video' : 'Run Test')
+                }
             </button>
         </div>
 
          <div>
             <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Test History for v{prompt.currentVersion}</h3>
             <div className="border dark:border-gray-700 rounded-lg max-h-80 overflow-y-auto">
+                {isTesting && (
+                    <div className="p-6 text-center text-sm text-gray-500 animate-pulse border-b dark:border-gray-700">
+                        {prompt.modality === Modality.IMAGE ? 'Generating image, this may take a moment...' : prompt.modality === Modality.VIDEO ? 'Generating video, this can take a few minutes...' : 'Running test...'}
+                    </div>
+                )}
                 {activeVersion?.testResults && activeVersion.testResults.length > 0 ? (
                      <ul className="divide-y dark:divide-gray-700">
                         {activeVersion.testResults.map(result => (
@@ -200,9 +218,11 @@ export const PromptDetailView: React.FC<PromptDetailViewProps> = ({ prompt, onCl
                         ))}
                     </ul>
                 ) : (
-                    <div className="p-10 text-center text-sm text-gray-500">
-                        No tests have been run for this version yet.
-                    </div>
+                    !isTesting && (
+                        <div className="p-10 text-center text-sm text-gray-500">
+                            No tests have been run for this version yet.
+                        </div>
+                    )
                 )}
             </div>
         </div>

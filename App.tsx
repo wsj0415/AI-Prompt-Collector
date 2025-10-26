@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { PromptModal } from './components/PromptModal';
 import { ConfirmationModal } from './components/ConfirmationModal';
 import { PromptDetailView } from './components/PromptDetailView';
-import { findRelevantPrompts, runPromptTest, evaluateTestResult } from './services/geminiService';
+import { findRelevantPrompts, runPromptTest, evaluateTestResult, generateImage, generateVideo } from './services/geminiService';
 import type { Prompt, PromptVersion, TestResult, Evaluation } from './types';
 import { Modality } from './types';
 import { useToast } from './components/Toast';
@@ -236,7 +235,26 @@ const App: React.FC = () => {
     if (!activeVersion) return;
 
     try {
-      const output = await runPromptTest(activeVersion.promptText);
+      let output: string;
+      if (promptToTest.modality === Modality.IMAGE) {
+        output = await generateImage(activeVersion.promptText);
+      } else if (promptToTest.modality === Modality.VIDEO) {
+        // @ts-ignore - aistudio is not in the default window type
+        if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function' && typeof window.aistudio.openSelectKey === 'function') {
+            // @ts-ignore
+            const hasKey = await window.aistudio.hasSelectedApiKey();
+            if (!hasKey) {
+                addToast('Please select an API key to generate videos.', 'info');
+                // @ts-ignore
+                await window.aistudio.openSelectKey();
+                // Per instructions, assume key is selected. The service will handle re-prompting on failure.
+            }
+        }
+        output = await generateVideo(activeVersion.promptText);
+      } else {
+        output = await runPromptTest(activeVersion.promptText);
+      }
+
       const newTestResult: TestResult = {
         id: new Date().toISOString(),
         output,
