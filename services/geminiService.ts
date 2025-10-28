@@ -122,28 +122,30 @@ export const evaluateTestResult = async (promptText: string, outputText: string)
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: `Evaluate the following AI-generated output based on the original prompt.
+            contents: `Perform a detailed evaluation of the AI-generated output based on the original prompt.
+
+            **Original Prompt:**
+            "${promptText}"
             
-            Original Prompt: "${promptText}"
+            **AI Output:**
+            "${outputText}"
             
-            AI Output: "${outputText}"
+            **Evaluation Rubric:**
+            1.  **Fidelity (Adherence to Instructions):** How well did the output follow ALL instructions, constraints, and negative constraints in the prompt? (Weight: 40%)
+            2.  **Quality & Clarity:** Is the output well-written, clear, coherent, and free of major errors? (Weight: 30%)
+            3.  **Creativity & Nuance:** Does the output show originality, creativity, or a deep understanding of the prompt's intent, especially for complex or abstract requests? (Weight: 30%)
             
-            Provide a numerical score from 1 to 10, where 1 is poor and 10 is excellent.
-            Also, provide a short, constructive feedback string explaining the score.
-            
-            Consider factors like:
-            - Adherence to instructions in the prompt.
-            - Clarity and quality of the output.
-            - Creativity and originality.
-            
-            Return the response as a JSON object.`,
+            **Your Task:**
+            Based on the rubric above, provide a JSON response with two fields:
+            1.  \`score\`: A numerical score from 1 to 10, where 1 is poor and 10 is excellent, reflecting a weighted average of the rubric.
+            2.  \`feedback\`: A constructive feedback string (2-3 sentences) explaining the score. The feedback should be specific, mentioning what the AI did well and where it could improve, referencing the rubric categories.`,
             config: {
                 responseMimeType: 'application/json',
                 responseSchema: {
                     type: Type.OBJECT,
                     properties: {
                         score: { type: Type.INTEGER, description: "A score from 1 to 10." },
-                        feedback: { type: Type.STRING, description: "Constructive feedback." }
+                        feedback: { type: Type.STRING, description: "Constructive feedback referencing the rubric." }
                     },
                     required: ["score", "feedback"]
                 }
