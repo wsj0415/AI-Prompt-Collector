@@ -10,10 +10,12 @@ import {
     PlusIcon, EditIcon, DeleteIcon, SearchIcon, 
     SparklesIcon, CopyIcon, CheckIcon, CollectionIcon, StatsIcon, ImportIcon, 
     ExportIcon, TextIcon, ImageIcon, VideoIcon, AudioIcon, CodeIcon, GridIcon,
-    SunIcon, MoonIcon, HashtagIcon
+    SunIcon, MoonIcon, HashtagIcon, TemplateIcon
 } from './components/icons';
+import { EnhancePromptModal } from './components/EnhancePromptModal';
 
-const StatisticsView = lazy(() => import('./components/StatisticsView'));
+const StatisticsView = lazy(() => import('./components/StatisticsView').then(module => ({ default: module.default })));
+const SharedPromptView = lazy(() => import('./components/SharedPromptView').then(module => ({ default: module.default })));
 
 
 type Theme = 'light' | 'dark';
@@ -44,6 +46,9 @@ const migratePrompts = (data: any[]): Prompt[] => {
     });
 };
 
+const VARIABLE_REGEX = /\[([^\]]+)\]/g;
+const isTemplate = (text: string) => VARIABLE_REGEX.test(text);
+
 
 const App: React.FC = () => {
   const { addToast } = useToast();
@@ -58,7 +63,7 @@ const App: React.FC = () => {
       return [
            {id: "1", title: "Sci-Fi Spaceship Concept Art", versions: [{version: 1, promptText: "Generate a concept art of a sleek, futuristic spaceship exploring a nebula. The design should be minimalist with glowing blue accents. Style of Syd Mead.", createdAt: "2025-10-26T10:00:00Z", testResults: []}], currentVersion: 1, modality: Modality.IMAGE, theme: "Concept Art", tags: ["sci-fi", "spaceship", "Syd Mead"], notes: "Great for generating desktop wallpapers. Adding '4K resolution' can improve quality.", createdAt: "2025-10-26T10:00:00Z"},
            {id: "2", title: "Python Function for Data Cleaning", versions: [{version: 1, promptText: "Write a Python function that takes a pandas DataFrame as input and removes duplicate rows, fills missing numerical values with the mean, and trims whitespace from all string columns.", createdAt: "2025-10-26T11:00:00Z", testResults: []}], currentVersion: 1, modality: Modality.CODE, theme: "Data Science", tags: ["python", "pandas", "data cleaning"], notes: "", createdAt: "2025-10-26T11:00:00Z"},
-           {id: "3", title: "Marketing Copy for a Coffee Shop", versions: [{version: 1, promptText: "Create a short, catchy marketing paragraph for a new artisanal coffee shop. Emphasize the cozy atmosphere, ethically sourced beans, and skilled baristas. Tone should be warm and inviting.", createdAt: "2025-10-26T12:00:00Z", testResults: []}], currentVersion: 1, modality: Modality.TEXT, theme: "Marketing Copy", tags: ["coffee", "advertising", "local business"], notes: "Can be adapted for social media posts or website copy.", createdAt: "2025-10-26T12:00:00Z"},
+           {id: "3", title: "Social Media Post Template", versions: [{version: 1, promptText: "Create a short, catchy marketing paragraph for a new [product]. Emphasize the [key feature 1], [key feature 2], and [unique benefit]. The target audience is [demographic]. Tone should be [tone].", createdAt: "2025-10-26T12:00:00Z", testResults: []}], currentVersion: 1, modality: Modality.TEXT, theme: "Marketing Copy", tags: ["template", "social media", "advertising"], notes: "A versatile template for quick ad copy generation.", createdAt: "2025-10-26T12:00:00Z"},
            {id: "4", title: "Epic Movie Trailer VO", versions: [{version: 1, promptText: "Generate a voice-over script for an epic fantasy movie trailer. The tone should be deep, dramatic, and mysterious. Include phrases like 'In a world of shadow...' and 'A hero will rise.'.", createdAt: "2025-10-25T14:00:00Z", testResults: []}], currentVersion: 1, modality: Modality.AUDIO, theme: "Voice Over", tags: ["movie trailer", "fantasy", "dramatic"], notes: "", createdAt: "2025-10-25T14:00:00Z"},
            {id: "5", title: "Short cooking tutorial video", versions: [{version: 1, promptText: "A 1-minute video showing how to make a perfect omelette. Start with ingredients display, show cracking eggs, whisking, pouring into a hot pan, and the final flip. Upbeat background music.", createdAt: "2025-10-24T18:00:00Z", testResults: []}], currentVersion: 1, modality: Modality.VIDEO, theme: "Cooking Tutorial", tags: ["food", "cooking", "short video"], notes: "", createdAt: "2025-10-24T18:00:00Z"},
       ];
@@ -92,6 +97,34 @@ const App: React.FC = () => {
   });
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [promptToDeleteId, setPromptToDeleteId] = useState<string | null>(null);
+  const [sharedPrompt, setSharedPrompt] = useState<Prompt | null>(null);
+  const [isCheckingShare, setIsCheckingShare] = useState(true);
+  const [isEnhanceModalOpen, setIsEnhanceModalOpen] = useState(false);
+  const [promptToEnhance, setPromptToEnhance] = useState<Prompt | null>(null);
+
+  useEffect(() => {
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const sharedData = urlParams.get('share');
+        if (sharedData) {
+            const decodedJson = atob(sharedData);
+            const parsedPrompt = JSON.parse(decodedJson) as Prompt;
+            // Basic validation
+            if (parsedPrompt && parsedPrompt.id && parsedPrompt.title && parsedPrompt.versions) {
+                setSharedPrompt(parsedPrompt);
+            } else {
+                 // Clear invalid param from URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        }
+    } catch (e) {
+        console.error("Failed to parse shared prompt data from URL", e);
+        // If parsing fails, redirect to the clean app state to avoid errors
+        window.history.replaceState({}, document.title, window.location.pathname);
+    } finally {
+        setIsCheckingShare(false);
+    }
+  }, []);
 
   const ChartLoadingFallback = () => (
     <div className="flex justify-center items-center h-full bg-white dark:bg-gray-800 rounded-lg shadow-md min-h-[500px]">
@@ -115,8 +148,11 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    localStorage.setItem('prompts', JSON.stringify(prompts));
-  }, [prompts]);
+    // Only save to local storage if not in a shared view
+    if (!sharedPrompt) {
+        localStorage.setItem('prompts', JSON.stringify(prompts));
+    }
+  }, [prompts, sharedPrompt]);
 
   const handleAiSearch = useCallback(async (promptsToSearch: Prompt[]) => {
     if (!searchQuery.trim()) {
@@ -227,17 +263,19 @@ const App: React.FC = () => {
     addToast(`Set Version ${version} as active.`, 'info');
   };
 
-  const handleRunTest = async (promptId: string) => {
+  const handleRunTest = async (promptId: string, compiledPromptText?: string) => {
     const promptToTest = prompts.find(p => p.id === promptId);
     if (!promptToTest) return;
 
     const activeVersion = promptToTest.versions.find(v => v.version === promptToTest.currentVersion);
     if (!activeVersion) return;
 
+    const textToRun = compiledPromptText || activeVersion.promptText;
+
     try {
       let output: string;
       if (promptToTest.modality === Modality.IMAGE) {
-        output = await generateImage(activeVersion.promptText);
+        output = await generateImage(textToRun);
       } else if (promptToTest.modality === Modality.VIDEO) {
         // @ts-ignore - aistudio is not in the default window type
         if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function' && typeof window.aistudio.openSelectKey === 'function') {
@@ -250,9 +288,9 @@ const App: React.FC = () => {
                 // Per instructions, assume key is selected. The service will handle re-prompting on failure.
             }
         }
-        output = await generateVideo(activeVersion.promptText);
+        output = await generateVideo(textToRun);
       } else {
-        output = await runPromptTest(activeVersion.promptText);
+        output = await runPromptTest(textToRun);
       }
 
       const newTestResult: TestResult = {
@@ -464,6 +502,60 @@ const App: React.FC = () => {
   const handleCardClick = (prompt: Prompt) => {
     setSelectedPrompt(prompt);
   };
+  
+  const handleSharePrompt = (promptToShare: Prompt) => {
+    try {
+        const jsonString = JSON.stringify(promptToShare);
+        const encodedData = btoa(jsonString);
+        const shareUrl = `${window.location.origin}${window.location.pathname}?share=${encodedData}`;
+        navigator.clipboard.writeText(shareUrl);
+        addToast('Share link copied to clipboard!', 'success');
+    } catch (error) {
+        console.error("Failed to create share link:", error);
+        addToast('Could not create share link.', 'error');
+    }
+  };
+  
+  const handleOpenEnhanceModal = (prompt: Prompt) => {
+    setSelectedPrompt(null); // Close detail view before opening enhance modal
+    setPromptToEnhance(prompt);
+    setIsEnhanceModalOpen(true);
+  };
+
+  const handleApplyEnhancement = (newPromptText: string) => {
+    if (!promptToEnhance) return;
+    
+    let newVersionNumber = 1;
+    const updatedPrompts = prompts.map(p => {
+        if (p.id === promptToEnhance.id) {
+            newVersionNumber = Math.max(0, ...p.versions.map(v => v.version)) + 1;
+            const newVersion: PromptVersion = {
+                version: newVersionNumber,
+                promptText: newPromptText,
+                createdAt: new Date().toISOString(),
+                testResults: [] // Start with fresh test results
+            };
+            const updatedPrompt = {
+                ...p,
+                versions: [...p.versions, newVersion],
+                currentVersion: newVersionNumber
+            };
+
+            // Update selected prompt if it's the one being enhanced
+            if(selectedPrompt?.id === promptToEnhance.id) {
+                setSelectedPrompt(updatedPrompt);
+            }
+
+            return updatedPrompt;
+        }
+        return p;
+    });
+
+    setPrompts(updatedPrompts);
+    addToast(`Applied suggestion as new version (v${newVersionNumber})`, 'success');
+    setIsEnhanceModalOpen(false);
+    setPromptToEnhance(null);
+  };
 
   const modalityIcons: Record<Modality, React.FC<React.SVGProps<SVGSVGElement>>> = {
     [Modality.TEXT]: TextIcon,
@@ -477,6 +569,25 @@ const App: React.FC = () => {
     { name: 'All Prompts', value: null, icon: GridIcon },
     ...Object.values(Modality).map(m => ({ name: m, value: m, icon: modalityIcons[m] }))
   ];
+  
+  const FullPageLoader = ({ message }: { message: string }) => (
+    <div className="flex h-screen w-screen justify-center items-center bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-300">
+      <div className="animate-pulse">{message}</div>
+    </div>
+  );
+
+  if (isCheckingShare) {
+      return <FullPageLoader message="Loading..." />;
+  }
+
+  if (sharedPrompt) {
+      return (
+           <Suspense fallback={<FullPageLoader message="Loading Shared Prompt..." />}>
+              <SharedPromptView prompt={sharedPrompt} />
+          </Suspense>
+      );
+  }
+
 
   return (
     <div className="flex h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans">
@@ -617,6 +728,11 @@ const App: React.FC = () => {
                         <div className="flex justify-between items-start mb-2">
                            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 flex-1 pr-2">{prompt.title}</h2>
                            <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400">
+                               {isTemplate(getActivePromptText(prompt)) && (
+                                 <span title="This is a template prompt">
+                                   <TemplateIcon className="w-4 h-4 text-indigo-500" />
+                                 </span>
+                               )}
                                {React.createElement(modalityIcons[prompt.modality], { className: "w-4 h-4"})}
                                <span className={`text-xs font-medium`}>
                                 {prompt.modality}
@@ -676,6 +792,8 @@ const App: React.FC = () => {
         onChangeVersion={handleChangeVersion}
         onRunTest={handleRunTest}
         onEvaluateTest={handleEvaluateTest}
+        onShare={handleSharePrompt}
+        onEnhance={handleOpenEnhanceModal}
       />
        <ConfirmationModal
         isOpen={isConfirmModalOpen}
@@ -683,6 +801,12 @@ const App: React.FC = () => {
         onConfirm={handleDeletePrompt}
         title="Delete Prompt"
         message="Are you sure you want to delete this prompt? This action cannot be undone."
+      />
+      <EnhancePromptModal
+        isOpen={isEnhanceModalOpen}
+        onClose={() => setIsEnhanceModalOpen(false)}
+        prompt={promptToEnhance}
+        onApply={handleApplyEnhancement}
       />
     </div>
   );

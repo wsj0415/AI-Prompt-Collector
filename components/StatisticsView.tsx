@@ -1,4 +1,5 @@
 
+
 import React, { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, Sector } from 'recharts';
 import type { Prompt } from '../types';
@@ -81,12 +82,16 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ prompts }) => {
     // Memoize processed data to avoid re-calculation on every render.
     // The dependency array [prompts] ensures this logic runs only when the raw data changes.
     const modalityCounts = prompts.reduce((acc, prompt) => {
+      // FIX: The value of acc[prompt.modality] can be undefined on first encounter.
+      // We provide a fallback of 0 to ensure the arithmetic operation is valid.
       acc[prompt.modality] = (acc[prompt.modality] || 0) + 1;
       return acc;
     }, {} as Record<Modality, number>);
     
     const themeCounts = prompts.reduce((acc, prompt) => {
         if (prompt.theme) {
+            // FIX: The value of acc[prompt.theme] can be undefined on first encounter.
+            // We provide a fallback of 0 to ensure the arithmetic operation is valid.
             acc[prompt.theme] = (acc[prompt.theme] || 0) + 1;
         }
         return acc;

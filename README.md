@@ -18,6 +18,9 @@ To elevate a basic prompt list application into a professional, scalable, and de
 4.  **[✔️] In-Depth Interaction:** Introduced a `Prompt Detail View`, allowing users to see the full, un-truncated content of their prompts in a focused, distraction-free environment, elevating the app from a simple list to a true knowledge base.
 5.  **[✔️] Enhanced Data Insights:** Polished the `Statistics View` by adding key metric cards, providing users with an immediate, at-a-glance overview of their collection.
 6.  **[✔️] Data Portability:** Implemented robust JSON export and import functionalities, allowing users to back up and restore their data with ease.
+7.  **[✔️] Advanced Prompt Management:** Implemented version control for prompts, allowing users to track changes, view history, and revert to previous versions.
+8.  **[✔️] Testing & Evaluation Framework:** Added a comprehensive interface for running prompts against the Gemini API, viewing results, and using an AI-powered evaluation to score outputs based on quality.
+9.  **[✔️] Version Comparison:** Created a side-by-side view for comparing different versions of a prompt and their test results, helping users optimize their prompts effectively.
 
 **Final Outcome:**
 The result is an application that is not only feature-complete but also professional in its aesthetics and user experience. It is now more intuitive, efficient, and well-prepared for future feature enhancements.
@@ -38,18 +41,23 @@ The result is an application that is not only feature-complete but also professi
 *   **Advanced Filtering & Sorting:**
     *   **Modality Filtering:** The sidebar provides quick filters to view prompts of a specific type.
     *   **Sorting:** The collection can be sorted by creation date (newest/oldest) or title (A-Z/Z-A).
-*   **Focused Detail View:** Clicking a prompt card opens a full-screen modal that displays the entire prompt text and notes without truncation, along with focused actions like copy, edit, and delete.
+*   **Prompt Versioning:** The app automatically saves a new version of a prompt whenever its text is modified, allowing users to track changes and revert to previous versions.
+*   **Testing & AI Evaluation:** A dedicated "Testing" tab in the detail view allows users to run prompts against the Gemini API. An AI-powered evaluation feature provides a quantitative score (1-10) and qualitative feedback on the test results.
+*   **Shareable Prompts:** Users can generate a unique, shareable link for any prompt directly from the detail view. This link opens a read-only page displaying the prompt's details and its best-performing test result, allowing for easy collaboration and showcasing of work without needing a login.
+*   **AI-Powered Prompt Enhancement:** A dedicated "Enhance with AI" feature helps users refine their prompts. It can suggest improvements for clarity and detail or generate creative variations, which can be saved as new versions for A/B testing.
+*   **Prompt Templates:** Users can create prompts with dynamic variables using `[variable_name]` syntax. In the Testing view, these variables automatically become input fields, allowing for rapid generation of prompt variations by filling in the blanks.
 *   **Data-Driven Insights:** The "Statistics" page visualizes the collection's data, showing total counts, modality distribution, and top themes through charts and key metric cards.
 *   **Data Portability:**
     *   **Export:** Users can export their entire prompt collection to a JSON file for backup.
     *   **Import:** Users can import prompts from a properly formatted JSON file, ensuring seamless data transfer.
 
 ### 3. User Workflow
-1.  **Add & Categorize:** A user clicks "Add Prompt" in the sidebar, fills out the form, and uses the AI generation feature to automatically assign a theme and tags.
-2.  **Browse & Find:** In the "Collection" view, the user can browse, filter by modality, sort the list, or use the search bar (in keyword or AI mode) to find a specific prompt.
-3.  **Use & Manage:** Once found, the user can quickly copy the prompt from the card's hover menu or click to open the detail view for full content and management options.
-4.  **Review & Analyze:** The user can switch to the "Statistics" view at any time to get an overview of their collection habits.
-5.  **Import & Export:** Users can click "Import" to add prompts from a JSON file or "Export" to save a backup of their collection as a JSON file.
+1.  **Add & Categorize:** A user clicks "Add Prompt" in the sidebar. They can create a standard prompt or a template by using `[variable]` syntax in the text. The AI generation feature helps automatically assign a theme and tags.
+2.  **Browse & Find:** In the "Collection" view, the user can browse, filter, sort, or search to find a prompt. Template prompts are marked with a special icon.
+3.  **Test & Iterate:** The user opens the detail view. In the "Testing" tab, if it's a template, they fill in the variable fields and see a live preview before running the test. They can edit the prompt (creating a new version), use the "Enhance with AI" feature, and compare results to refine it.
+4.  **Share:** Once a prompt is perfected, the user clicks "Share" to copy a link to their clipboard and send it to others.
+5.  **Review & Analyze:** The user can switch to the "Statistics" view at any time to get an overview of their collection habits.
+6.  **Import & Export:** Users can click "Import" to add prompts from a JSON file or "Export" to save a backup of their collection as a JSON file.
 
 ---
 
@@ -59,7 +67,7 @@ The result is an application that is not only feature-complete but also professi
 *   **Frontend Framework:** React 19 (via CDN)
 *   **Language:** TypeScript
 *   **Styling:** Tailwind CSS (via CDN)
-*   **AI Model:** Google Gemini API (`gemini-2.5-flash`)
+*   **AI Model:** Google Gemini API (`gemini-2.5-flash`, `imagen-4.0-generate-001`, `veo-3.1-fast-generate-preview`)
 *   **Charting Library:** Recharts
 *   **Local Storage:** Browser `localStorage` for data persistence.
 
@@ -71,14 +79,14 @@ The result is an application that is not only feature-complete but also professi
 ├── index.tsx           # React application root
 ├── metadata.json       # Application metadata
 ├── App.tsx             # Main app component (state management, view routing)
-├── types.ts            # Global TypeScript type definitions (Prompt, Modality)
+├── types.ts            # Global TypeScript type definitions
 ├── services/
 │   └── geminiService.ts  # Encapsulates all Gemini API interaction logic
 └── components/
     ├── PromptModal.tsx   # Modal for adding/editing prompts
     ├── StatisticsView.tsx# Data statistics view component
     ├── PromptDetailView.tsx# Prompt detail view modal component
-    └── icons.tsx         # Centralized SVG icon components
+    ├── ...and more
 ```
 
 ### 3. State Management
@@ -88,34 +96,23 @@ Application state is managed within the main `App.tsx` component using React Hoo
 *   `isModalOpen`, `promptToEdit`: Manages the state for the add/edit modal.
 *   `selectedPrompt`: Manages the state for the detail view modal.
 *   `searchQuery`, `isAiSearch`, `filteredPrompts`: Manages all states related to the search functionality.
-*   `modalityFilter`: Stores the currently active modality filter.
-*   `sortBy`: Stores the current sorting rule.
 
 ### 4. Core Logic & Data Flow
 
-*   **Data Persistence:**
-    *   The `prompts` state is automatically saved to `localStorage` whenever it changes, using a `useEffect` hook. The app hydrates its initial state from `localStorage` on load.
+*   **Data Persistence:** The `prompts` state is automatically saved to `localStorage` whenever it changes, using a `useEffect` hook. The app hydrates its initial state from `localStorage` on load.
 
 *   **CRUD Operations:**
-    *   `handleSavePrompt`: Handles both creating new prompts and updating existing ones.
+    *   `handleSavePrompt`: Handles both creating new prompts and updating existing ones. If the prompt text is changed on an existing prompt, it creates a new version instead of overwriting the data.
     *   `handleDeletePrompt`: Removes a prompt from the `prompts` array.
 
-*   **Display Logic (Filtering, Searching, Sorting):**
-    *   The `displayedPrompts` variable is derived using `useMemo` for performance optimization. It calculates the final list to be rendered by applying the following steps in order:
-        1.  **Filter:** The list is first filtered by the selected `modalityFilter`.
-        2.  **Search:** The filtered list is then processed by the search logic (either local keyword search or the asynchronous AI search results).
-        3.  **Sort:** Finally, the resulting list is sorted based on the current `sortBy` state.
-    *   This chained, memoized approach ensures that the UI updates efficiently and all controls work together seamlessly.
+*   **Display Logic:** The `displayedPrompts` variable is derived using `useMemo` for performance optimization. It calculates the final list to be rendered by applying filtering, searching, and sorting logic sequentially.
 
 *   **Gemini API Integration:**
     *   All communication with the Gemini API is isolated in `services/geminiService.ts`.
-    *   `generateTagsAndTheme`: Constructs a request with a specific JSON schema to ensure the API returns a consistently structured object for the theme and tags.
-    *   `findRelevantPrompts`: Sends a summarized list of all prompts along with the user's query to the API, asking it to return an array of the most relevant prompt IDs, which are then used to filter and sort the results.
+    *   `generateTagsAndTheme`, `findRelevantPrompts`, `runPromptTest`, `evaluateTestResult`, and `enhancePrompt` are the core functions that construct requests with specific JSON schemas to ensure the API returns consistently structured data.
 
 ### 5. Data Import/Export
 
-*   **Export:** The entire collection is exported as a single JSON file with a timestamped filename (e.g., `ai-prompts-export-YYYY-MM-DD.json`).
-*   **Import:** Users can import prompts from a JSON file. The format should be the same as the one generated by the "Export" feature.
-    *   **Format:** The file must contain a JSON array of prompt objects.
-    *   **Validation:** Each object in the array should represent a valid prompt with fields like `id`, `title`, `versions`, and `modality`.
-    *   **Duplicate Handling:** Prompts with an `id` that already exists in your current collection will be skipped to prevent duplicates.
+*   **Export:** The entire collection is exported as a single JSON file with a timestamped filename.
+*   **Import:** Users can import prompts from a JSON file. The format should be the same as the one generated by the "Export" feature. Duplicate IDs are skipped.
+*   **Migration:** The import logic includes a migration function (`migratePrompts`) to ensure backward compatibility with older data formats.
